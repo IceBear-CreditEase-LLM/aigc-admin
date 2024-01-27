@@ -1,0 +1,26 @@
+version: "3"
+services:
+  mysql:
+    image: ${MYSQL_IMAGE}
+    restart: always
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - TZ=${WORKSPACE_TIMEZONE}
+    command: [
+      '--character-set-server=utf8mb4',
+      '--collation-server=utf8mb4_unicode_ci',
+    ]
+    ports:
+      - ${MYSQL_PORT}:3306
+    volumes:
+      - ${MYSQL_DATA}:/var/lib/mysql
+  redis:
+    image: ${REDIS_IMAGE}
+    restart: always
+    ports:
+      - ${REDIS_PORT}:6379
+    volumes:
+      - ${REDIS_DATA}:/data
