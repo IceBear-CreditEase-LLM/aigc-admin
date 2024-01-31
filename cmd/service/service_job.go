@@ -19,7 +19,7 @@ var (
 		DisableAutoGenTag: false,
 		Example: `
 可用的配置类型：
-[clear]
+[finetuning]
 
 aigc-admin job -h
 `,

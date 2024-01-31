@@ -190,3 +190,19 @@ func FormatBytes(bytes int64) string {
 	}
 	return fmt.Sprintf("%.1f%cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
+
+// File 实现 multipart.File 接口所需的方法
+type File struct {
+	*bytes.Reader
+}
+
+func (f *File) Close() error {
+	return nil // bytes.Reader 不需要关闭资源，所以这里返回 nil 即可
+}
+
+// NewFile 创建一个新的 File 实例，该实例满足 multipart.File 接口
+func NewFile(data []byte) *File {
+	return &File{
+		bytes.NewReader(data),
+	}
+}

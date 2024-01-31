@@ -127,6 +127,44 @@ type (
 	EstimateResponse struct {
 		Time string `json:"time"`
 	}
+
+	// jobResult createJobResponse is the response struct for the CreateJob endpoint.
+	jobResult struct {
+		// Object is the type of object.
+		Object string `json:"object"`
+		// Id is the id of the job.
+		Id string `json:"id"`
+		// Model is the name of the model to use.
+		Model string `json:"model"`
+		// CreatedAt is the time the job was created.
+		CreatedAt int64 `json:"created_at"`
+		// FinishedAt is the time the job finished.
+		FinishedAt int64 `json:"finished_at,omitempty"`
+		// FineTunedModel is the name of the fine-tuned model.
+		FineTunedModel string `json:"fine_tuned_model,omitempty"`
+		// OrganizationId is the id of the organization.
+		OrganizationId string `json:"organization_id"`
+		// ResultFiles is the list of result files.
+		ResultFiles []string `json:"result_files"`
+		// Status is the status of the job.
+		Status string `json:"status"`
+		// ValidationFile is the path to the validation file.
+		ValidationFile string `json:"validation_file,omitempty"`
+		// TrainingFile is the path to the training file.
+		TrainingFile string `json:"training_file"`
+		// Error is the error message.
+		Error interface{} `json:"error,omitempty"`
+		// HyperParameters is the hyperparameters to use.
+		HyperParameters jobHyperParameters `json:"hyperparameters"`
+		// TrainedTokens is the number of trained tokens.
+		TrainedTokens int `json:"trained_tokens,omitempty"`
+	}
+
+	// jobHyperParameters is the hyperparameters to use.
+	jobHyperParameters struct {
+		// NEpochs is the number of training epochs.
+		NEpochs int `json:"n_epochs"`
+	}
 )
 
 type Endpoints struct {

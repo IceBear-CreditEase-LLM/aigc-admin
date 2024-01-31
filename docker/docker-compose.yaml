@@ -1,26 +1,47 @@
 version: "3"
 services:
   mysql:
-    image: ${MYSQL_IMAGE}
+    image: mysql:8.3.0
     restart: always
     environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - TZ=${WORKSPACE_TIMEZONE}
+      - MYSQL_DATABASE=aigc
+      - MYSQL_USER=aigc
+      - MYSQL_PASSWORD=admin
+      - MYSQL_ROOT_PASSWORD=admin@123
+      - TZ=Asia/Shanghai
     command: [
       '--character-set-server=utf8mb4',
       '--collation-server=utf8mb4_unicode_ci',
     ]
     ports:
-      - ${MYSQL_PORT}:3306
+      - "3306:3306"
     volumes:
-      - ${MYSQL_DATA}:/var/lib/mysql
+      - ./.cache/mysql:/var/lib/mysql
   redis:
-    image: ${REDIS_IMAGE}
+    image: redis:6.2
     restart: always
     ports:
-      - ${REDIS_PORT}:6379
+      - "6379:6379"
     volumes:
-      - ${REDIS_DATA}:/data
+      - ./.cache/redis:/data
+  aigc-admin:
+    image: aigc-admin:0.0.0-pre-test
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+    command:
+      - aigc-admin
+      - start
+  aigc-admin-cronjob:
+    image: aigc-admin:0.0.0-pre-test
+    restart: always
+    command:
+      - aigc-admin
+      - cronjob
+      - start
+    depends_on:
+      - mysql
+      - redis

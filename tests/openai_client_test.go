@@ -98,7 +98,7 @@ func TestChatCompletionsNoStream(t *testing.T) {
 			MaxTokens: 8192,
 			Messages: []openai.ChatCompletionMessage{
 				{
-					Role:    "system",
+					Role:    "sys",
 					Content: "我希望你充当语言检测器。我会用任何语言输入一个句子，你会回答我，我写的句子里是否有进入语音邮箱。不要写任何解释或其他文字，只需回复True或False即可。",
 				},
 				{

@@ -54,10 +54,44 @@ type Service interface {
 	GetEval(ctx context.Context, id uint) (res types.LLMEvalResults, err error)
 	// DeleteEval 删除评估任务
 	DeleteEval(ctx context.Context, id uint) (err error)
+	// FindDeployPendingModels 获取正在部署的模型
+	FindDeployPendingModels(ctx context.Context) (models []types.Models, err error)
+	// UpdateDeployStatus 更新部署状态
+	UpdateDeployStatus(ctx context.Context, modelId uint, status types.ModelDeployStatus) (err error)
+	// SetModelEnabled 设置模型是事可用
+	SetModelEnabled(ctx context.Context, modelId string, enabled bool) (err error)
+	// FindByModelId 根据id查询模型
+	FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error)
 }
 
 type service struct {
 	db *gorm.DB
+}
+
+func (s *service) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {
+	db := s.db.WithContext(ctx)
+	for _, preload := range preloads {
+		db = db.Preload(preload)
+	}
+	err = db.Where("model_name = ?", modelId).First(&model).Error
+	return
+}
+
+func (s *service) SetModelEnabled(ctx context.Context, modelId string, enabled bool) (err error) {
+	return s.db.WithContext(ctx).Model(&types.Models{}).Where("model_name = ?", modelId).Update("enabled", enabled).Error
+}
+
+func (s *service) UpdateDeployStatus(ctx context.Context, modelId uint, status types.ModelDeployStatus) (err error) {
+	return s.db.WithContext(ctx).Model(&types.ModelDeploy{}).Where("model_id = ?", modelId).Updates(map[string]interface{}{
+		"status": status,
+	}).Error
+}
+
+func (s *service) FindDeployPendingModels(ctx context.Context) (models []types.Models, err error) {
+	err = s.db.WithContext(ctx).
+		InnerJoins("JOIN model_deploy ON model_deploy.status = ? AND model_deploy.deleted_at IS NULL", types.ModelDeployStatusPending).
+		Find(&models).Error
+	return
 }
 
 func (s *service) DeleteEval(ctx context.Context, id uint) (err error) {

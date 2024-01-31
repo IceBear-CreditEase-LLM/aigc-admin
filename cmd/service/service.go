@@ -1,10 +1,3 @@
-/**
- * @Time: 2020/4/23 14:07
- * @Author: solacowa@gmail.com
- * @File: service
- * @Software: GoLand
- */
-
 package service
 
 import (
@@ -78,7 +71,6 @@ const (
 	EnvNameTracerJaegerLogSpans = "AIGC_TRACER_JAEGER_LOG_SPANS"
 
 	// [外部Service相关]
-	EnvNameServerHttpProxy       = "AIGC_SERVER_HTTP_PROXY"
 	EnvNameServiceAlarmHost      = "AIGC_SERVICE_ALARM_HOST"    // 告警相关
 	EnvNameServiceGptHost        = "AIGC_SERVICE_CHAT_API_HOST" // chat-api相关
 	EnvNameServiceOpenAiEnable   = "AIGC_SERVICE_OPENAI_ENABLE" // openai相关
@@ -111,15 +103,21 @@ const (
 	EnvNameLdapUserAttr    = "AIGC_LDAP_USER_ATTR"
 
 	// [以下是aigc-admin模块配置]
-	EnvHttpPort                 = "AIGC_ADMIN_HTTP_PORT"
-	EnvNameServerLogDrive       = "AIGC_ADMIN_SERVER_LOG_DRIVE"
-	EnvNameServerLogPath        = "AIGC_ADMIN_SERVER_LOG_PATH"
-	EnvNameServerName           = "AIGC_ADMIN_SERVER_NAME"
-	EnvNameServerDebug          = "AIGC_ADMIN_SERVER_DEBUG"
-	EnvNameServerKey            = "AIGC_ADMIN_SERVER_KEY"
-	EnvNameServerLogLevel       = "AIGC_ADMIN_SERVER_LOG_LEVEL"
-	EnvNameServerLogName        = "AIGC_ADMIN_SERVER_LOG_NAME"
-	EnvNameServerAigcChannelKey = "AIGC_ADMIN_SERVER_AIGC_CHANNEL_KEY"
+	EnvHttpPort                    = "AIGC_ADMIN_HTTP_PORT"
+	EnvNameServerLogDrive          = "AIGC_ADMIN_SERVER_LOG_DRIVE"
+	EnvNameServerLogPath           = "AIGC_ADMIN_SERVER_LOG_PATH"
+	EnvNameServerName              = "AIGC_ADMIN_SERVER_NAME"
+	EnvNameServerDebug             = "AIGC_ADMIN_SERVER_DEBUG"
+	EnvNameServerKey               = "AIGC_ADMIN_SERVER_KEY"
+	EnvNameServerLogLevel          = "AIGC_ADMIN_SERVER_LOG_LEVEL"
+	EnvNameServerLogName           = "AIGC_ADMIN_SERVER_LOG_NAME"
+	EnvNameServerAigcChannelKey    = "AIGC_ADMIN_SERVER_AIGC_CHANNEL_KEY"
+	EnvNameServerAdminUser         = "AIGC_ADMIN_SERVER_ADMIN_USER"
+	EnvNameServerAdminPass         = "AIGC_ADMIN_SERVER_ADMIN_PASS"
+	EnvNameServerDefaultChannelKey = "AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY"
+
+	// [cronjob]
+	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
 
 	DefaultDbDrive       = "mysql"
 	DefaultMysqlHost     = "localhost"
@@ -140,7 +138,8 @@ const (
 	DefaultServerLogName   = "aigc-admin.log"
 	DefaultServerDebug     = false
 	DefaultEnableCORS      = false
-	DefaultServerHttpProxy = ""
+	DefaultServerAdminUser = "admin"
+	DefaultServerAdminPass = "admin"
 
 	DefaultCORSAllowOrigins     = "*"
 	DefaultCORSAllowMethods     = "GET,POST,PUT,DELETE,OPTIONS"
@@ -175,7 +174,7 @@ const (
 	DefaultLdapAttributes  = "name,mail,userPrincipalName,displayName,sAMAccountName"
 
 	// [s3]
-	DefaultServiceS3Host         = "http://s3.jishu.idc"
+	DefaultServiceS3Host         = "http://s3"
 	DefaultServiceS3AccessKey    = ""
 	DefaultServiceS3SecretKey    = ""
 	DefaultServiceS3Bucket       = "aigc"
@@ -203,8 +202,6 @@ var (
 		SilenceErrors:     true,
 		DisableAutoGenTag: true,
 		Long: `# Aigc Admin服务
-可用的配置类型：
-[start]
 有关本系统的相关概述，请参阅 http://github.com/IceBear-CreditEase-LLM/aigc-admin
 `, Version: version,
 	}
@@ -216,19 +213,19 @@ var (
 	//hashId   hashids.HashIds
 	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                        string
 	mysqlPort, redisDb, ormPort                                                                        int
-	redisAuth, redisHosts, redisPrefix, serverHttpProxy                                                string
+	redisAuth, redisHosts, redisPrefix                                                                 string
 	serverName, serverKey, serverLogLevel, serverLogDrive, serverLogPath, serverLogName                string
+	serverAdminUser, serverAdminPass                                                                   string
 	corsAllowOrigins, corsAllowMethods, corsAllowHeaders, corsExposeHeaders                            string
 	serverDebug, enableCORS, corsAllowCredentials, tracerEnable, tracerJaegerLogSpans, mysqlOrmMetrics bool
 	tracerDrive, tracerJaegerHost, tracerJaegerType                                                    string
 	tracerJaegerParam                                                                                  float64
 	serviceAlarmHost                                                                                   string
-	aigcChannelKey                                                                                     string
+	serverChannelKey                                                                                   string
 
 	// [gpt]
-	serviceGPTInternal, serviceOpenAiEnable                                       bool
+	serviceOpenAiEnable                                                           bool
 	serviceGPTHost, serviceGPTModel, serviceSdHost, serviceSdRedisKey             string
-	serviceGPTCtxLen, serviceGPTMaxTokens                                         int
 	serviceOpenAiHost, serviceOpenAiToken, serviceOpenAiModel, serviceOpenAiOrgId string
 
 	// [s3]
@@ -248,6 +245,9 @@ var (
 	corsHeaders   = make(map[string]string, 3)
 	rateBucketNum = 5000000
 	traceId       = logging.TraceId
+
+	// [cronjob]
+	cronJobAuto bool
 
 	goOS                                     = runtime.GOOS
 	goArch                                   = runtime.GOARCH
@@ -305,7 +305,8 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&serverLogPath, "server.log.path", DefaultServerLogPath, "本系统日志路径")
 	rootCmd.PersistentFlags().StringVar(&serverLogName, "server.log.name", DefaultServerLogName, "本系统日志名称")
 	rootCmd.PersistentFlags().BoolVar(&serverDebug, "server.debug", DefaultServerDebug, "是否开启Debug模式")
-	rootCmd.PersistentFlags().StringVar(&serverHttpProxy, "server.http.proxy", DefaultServerHttpProxy, "请求外部服务的Http代理地址")
+	rootCmd.PersistentFlags().StringVar(&serverAdminUser, "server.admin.user", DefaultServerAdminUser, "系统管理员账号")
+	rootCmd.PersistentFlags().StringVar(&serverAdminPass, "server.admin.pass", DefaultServerAdminPass, "系统管理员密码")
 	// [service]
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config.path", "c", "", "配置文件路径，如果没有传入配置文件路径则默认使用环境变量")
 	rootCmd.PersistentFlags().StringVar(&serviceAlarmHost, "service.alarm.token", DefaultServiceAlarmHost, "告警中心服务地址")
@@ -340,13 +341,18 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&ldapGroupFilter, "ldap.group.filter", DefaultLdapGroupFilter, "LDAP Group Filter")
 	rootCmd.PersistentFlags().StringSliceVar(&ldapUserAttr, "ldap.user.attr", []string{"name", "mail", "userPrincipalName", "displayName", "sAMAccountName"}, "LDAP Attributes")
 
-	//jobClearCmd.AddCommand(jobClearAudioTaggedCmd)
-	//jobCmd.AddCommand(jobClearCmd)
+	cronJobStartCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 
+	//jobClearCmd.AddCommand(jobClearAudioTaggedCmd)
 	generateCmd.AddCommand(genTableCmd)
 
+	jobFineTuningCmd.AddCommand(jobFineTuningJobRunWaitingTrainCmd, jobFineTuningJobRunningJobLogCmd)
+	jobCmd.AddCommand(jobFineTuningCmd)
+
+	cronJobCmd.AddCommand(cronJobStartCmd)
+
 	addFlags(rootCmd)
-	rootCmd.AddCommand(startCmd, generateCmd, jobCmd)
+	rootCmd.AddCommand(startCmd, generateCmd, jobCmd, cronJobCmd)
 
 }
 
@@ -516,10 +522,6 @@ func prepare(ctx context.Context) error {
 		},
 	}, clientOpts, rdb)
 
-	//aigc-admin channelID
-	channelRes, err := store.Chat().FindChannelByApiKey(ctx, aigcChannelKey)
-	channelId = int(channelRes.ID)
-
 	return err
 }
 
@@ -565,9 +567,10 @@ func Run() {
 	serverLogDrive = envString(EnvNameServerLogDrive, DefaultServerLogDrive)
 	serverLogPath = envString(EnvNameServerLogPath, DefaultServerLogPath)
 	serverLogName = envString(EnvNameServerLogName, DefaultServerLogName)
-	serverHttpProxy = envString(EnvNameServerHttpProxy, DefaultServerHttpProxy)
-	aigcChannelKey = envString(EnvNameServerAigcChannelKey, "sk-001")
+	serverChannelKey = envString(EnvNameServerAigcChannelKey, "sk-001")
 	serverDebug, _ = strconv.ParseBool(envString(EnvNameServerDebug, strconv.FormatBool(DefaultServerDebug)))
+	serverAdminUser = envString(EnvNameServerAdminUser, DefaultServerAdminUser)
+	serverAdminUser = envString(EnvNameServerAdminPass, DefaultServerAdminPass)
 
 	// 以下是[service] 模块配置
 	serviceAlarmHost = envString(EnvNameServiceAlarmHost, DefaultServiceAlarmHost)

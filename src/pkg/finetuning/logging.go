@@ -3,7 +3,9 @@ package finetuning
 import (
 	"context"
 	"fmt"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"time"
 )
 
@@ -15,10 +17,70 @@ type logging struct {
 	traceId string
 }
 
-func (l *logging) Estimate(ctx context.Context, tenantId uint, request CreateJobRequest) (response EstimateResponse, err error) {
+func (s *logging) _createJob(ctx context.Context, tenantId, channelId uint, trainingFileId, model, suffix, validationFile string, epochs int) (res jobResult, err error) {
 	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "_createJob", "tenantId", tenantId, "channelId", channelId, "trainingFileId", trainingFileId, "model", model, "suffix", suffix, "validationFile", validationFile, "epochs", epochs,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next._createJob(ctx, tenantId, channelId, trainingFileId, model, suffix, validationFile, epochs)
+}
+
+func (s *logging) _cancelJob(ctx context.Context, channelId uint, fineTuningJob string) (res jobResult, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "_cancelJob", "channelId", channelId, "fineTuningJob", fineTuningJob,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next._cancelJob(ctx, channelId, fineTuningJob)
+}
+
+func (s *logging) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob string, status types.TrainStatus, message string) (err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "UpdateJobFinishedStatus", "fineTuningJob", fineTuningJob, "status", status, "message", message,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.UpdateJobFinishedStatus(ctx, fineTuningJob, status, message)
+}
+
+func (s *logging) RunWaitingTrain(ctx context.Context) (err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "RunWaitingTrain",
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.RunWaitingTrain(ctx)
+}
+
+func (s *logging) _createFineTuningJob(ctx context.Context, jobId string) (err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "_createFineTuningJob", "jobId", jobId,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next._createFineTuningJob(ctx, jobId)
+}
+
+func (s *logging) Estimate(ctx context.Context, tenantId uint, request CreateJobRequest) (response EstimateResponse, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
 			"method", "Estimate",
 			"request", fmt.Sprintf("%+v", request),
 			"response", response,
@@ -26,13 +88,13 @@ func (l *logging) Estimate(ctx context.Context, tenantId uint, request CreateJob
 			"err", err,
 		)
 	}(time.Now())
-	return l.next.Estimate(ctx, tenantId, request)
+	return s.next.Estimate(ctx, tenantId, request)
 }
 
-func (l *logging) ListTemplate(ctx context.Context, tenantId uint, request ListTemplateRequest) (response ListTemplateResponse, err error) {
+func (s *logging) ListTemplate(ctx context.Context, tenantId uint, request ListTemplateRequest) (response ListTemplateResponse, err error) {
 	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
 			"method", "ListTemplate",
 			"request", fmt.Sprintf("%+v", request),
 			"tenantId", tenantId,
@@ -40,13 +102,13 @@ func (l *logging) ListTemplate(ctx context.Context, tenantId uint, request ListT
 			"err", err,
 		)
 	}(time.Now())
-	return l.next.ListTemplate(ctx, tenantId, request)
+	return s.next.ListTemplate(ctx, tenantId, request)
 }
 
-func (l *logging) GetJob(ctx context.Context, tenantId uint, jobId string) (response JobResponse, err error) {
+func (s *logging) GetJob(ctx context.Context, tenantId uint, jobId string) (response JobResponse, err error) {
 	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
 			"method", "GetJob",
 			"jobId", jobId,
 			"tenantId", tenantId,
@@ -54,13 +116,13 @@ func (l *logging) GetJob(ctx context.Context, tenantId uint, jobId string) (resp
 			"err", err,
 		)
 	}(time.Now())
-	return l.next.GetJob(ctx, tenantId, jobId)
+	return s.next.GetJob(ctx, tenantId, jobId)
 }
 
-func (l *logging) DeleteJob(ctx context.Context, tenantId uint, jobId string) (err error) {
+func (s *logging) DeleteJob(ctx context.Context, tenantId uint, jobId string) (err error) {
 	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
 			"method", "DeleteJob",
 			"jobId", jobId,
 			"tenantId", tenantId,
@@ -68,26 +130,26 @@ func (l *logging) DeleteJob(ctx context.Context, tenantId uint, jobId string) (e
 			"err", err,
 		)
 	}(time.Now())
-	return l.next.DeleteJob(ctx, tenantId, jobId)
+	return s.next.DeleteJob(ctx, tenantId, jobId)
 }
 
-func (l *logging) DashBoard(ctx context.Context, tenantId uint) (res DashBoardResponse, err error) {
+func (s *logging) DashBoard(ctx context.Context, tenantId uint) (res DashBoardResponse, err error) {
 	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
 			"method", "DashBoard",
 			"tenantId", tenantId,
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
-	return l.next.DashBoard(ctx, tenantId)
+	return s.next.DashBoard(ctx, tenantId)
 }
 
-func (l *logging) CreateJob(ctx context.Context, tenantId uint, request CreateJobRequest) (response JobResponse, err error) {
+func (s *logging) CreateJob(ctx context.Context, tenantId uint, request CreateJobRequest) (response JobResponse, err error) {
 	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
 			"method", "CreateJob",
 			"tenantId", tenantId,
 			"request", fmt.Sprintf("%+v", request),
@@ -95,13 +157,13 @@ func (l *logging) CreateJob(ctx context.Context, tenantId uint, request CreateJo
 			"err", err,
 		)
 	}(time.Now())
-	return l.next.CreateJob(ctx, tenantId, request)
+	return s.next.CreateJob(ctx, tenantId, request)
 }
 
-func (l *logging) ListJob(ctx context.Context, tenantId uint, request ListJobRequest) (response ListJobResponse, err error) {
+func (s *logging) ListJob(ctx context.Context, tenantId uint, request ListJobRequest) (response ListJobResponse, err error) {
 	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
 			"method", "ListJob",
 			"tenantId", tenantId,
 			"request", fmt.Sprintf("%+v", request),
@@ -109,13 +171,13 @@ func (l *logging) ListJob(ctx context.Context, tenantId uint, request ListJobReq
 			"err", err,
 		)
 	}(time.Now())
-	return l.next.ListJob(ctx, tenantId, request)
+	return s.next.ListJob(ctx, tenantId, request)
 }
 
-func (l *logging) CancelJob(ctx context.Context, tenantId uint, jobId string) (err error) {
+func (s *logging) CancelJob(ctx context.Context, tenantId uint, jobId string) (err error) {
 	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
 			"method", "CancelJob",
 			"tenantId", tenantId,
 			"jobId", jobId,
@@ -123,14 +185,14 @@ func (l *logging) CancelJob(ctx context.Context, tenantId uint, jobId string) (e
 			"err", err,
 		)
 	}(time.Now())
-	return l.next.CancelJob(ctx, tenantId, jobId)
+	return s.next.CancelJob(ctx, tenantId, jobId)
 }
 
 func NewLogging(logger log.Logger, traceId string) Middleware {
 	logger = log.With(logger, "pkg.finetuning", "logging")
 	return func(next Service) Service {
 		return &logging{
-			logger:  logger,
+			logger:  level.Info(logger),
 			next:    next,
 			traceId: traceId,
 		}

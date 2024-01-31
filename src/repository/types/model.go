@@ -8,8 +8,8 @@ import (
 // Models 模型表
 type Models struct {
 	gorm.Model
-	ProviderName       string             `gorm:"column:provider_name;type:varchar(50);default:localai;NOT NULL"`      // 模型供应商 openai、localai
-	ModelType          string             `gorm:"column:model_type;type:varchar(30);default:text-generation;NOT NULL"` // 模型类型 text-generation、embeddings、whisper
+	ProviderName       ModelProvider      `gorm:"column:provider_name;type:varchar(50);default:localai;NOT NULL"`      // 模型供应商 openai、localai
+	ModelType          ModelType          `gorm:"column:model_type;type:varchar(30);default:text-generation;NOT NULL"` // 模型类型 text-generation、embeddings、whisper
 	ModelName          string             `gorm:"column:model_name;type:varchar(50);NOT NULL"`                         // 模型名称
 	MaxTokens          int                `gorm:"column:max_tokens;type:int(11);default:2048;NOT NULL"`                // 最长上下文
 	IsPrivate          bool               `gorm:"column:is_private;type:tinyint(1);default:0;NOT NULL"`                // 是否是私有模型

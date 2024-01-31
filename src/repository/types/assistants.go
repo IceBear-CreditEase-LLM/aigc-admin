@@ -29,7 +29,7 @@ type Assistants struct {
 	Operator string `gorm:"column:operator;size:64;not null;comment:操作人"`
 
 	//Tools []AssistantToolAssociations `gorm:"foreignKey:AssistantId;references:ID"`
-	Tools []Tools `gorm:"many2many:assistant_tool_associations;foreignKey:ID;references:ID;joinForeignKey:AssistantId;joinReferences:ToolId"`
+	Tools []Tools `gorm:"many2many:assistant_tool_associations;foreignKey:ID;references:ID;joinReferences:AssistantId;joinForeignKey:ToolId"`
 	//AssistantFiles []Files                     `gorm:"many2many:assistant_file_associations;foreignKey:AssistantId;joinForeignKey:AssistantId;References:ID;JoinReferences:ID"`
 }
 
@@ -50,7 +50,7 @@ type AssistantMessages struct {
 
 // AssistantToolAssociations 助手工具
 type AssistantToolAssociations struct {
-	gorm.Model
+	//gorm.Model
 	// AssistantId 助手ID
 	AssistantId uint `gorm:"column:assistant_id;index;not null;comment:助手ID"`
 	// ToolId 工具ID

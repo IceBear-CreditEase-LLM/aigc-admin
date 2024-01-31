@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"strings"
 	"time"
 )
 
@@ -204,10 +203,6 @@ func (s *service) Login(ctx context.Context, username, password string) (res log
 		return res, encode.ErrAccountLogin.Error()
 	}
 
-	if !strings.Contains(username, "@") {
-		username = fmt.Sprintf("%s@%s", username, "creditease.cn")
-	}
-
 	loginKey := fmt.Sprintf("aigc:auth:login:%s", username)
 	if s.rdb.Incr(ctx, loginKey).Val() > 1 {
 		_ = s.rdb.Expire(ctx, loginKey, time.Minute).Err()
@@ -287,14 +282,7 @@ func (s *service) jwtToken(ctx context.Context, source authjwt.TokenSource, time
 	}
 
 	//不同类型，参数不一样
-	switch source {
-	case authjwt.TokenSourceQw: //企微
-		claims.QwUserid = qwUserid
-		break
-	case authjwt.TokenSourceNd: //邮箱登录
-		claims.Email = email
-		break
-	}
+	claims.Email = email
 
 	//创建token，指定加密算法为HS256
 	token := jwt2.NewWithClaims(jwt2.SigningMethodHS256, claims)

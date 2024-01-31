@@ -8,12 +8,14 @@
 package repository
 
 import (
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/tenant"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/assistants"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/auth"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/channel"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/datasets"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/finetuning"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/llmeval"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/model"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/sys"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/tools"
@@ -46,6 +48,10 @@ type Repository interface {
 	Tools() tools.Service
 	// Assistants 助手
 	Assistants() assistants.Service
+	// LLMEval 评估模块
+	LLMEval() llmeval.Service
+	// Tenants 租户模块
+	Tenants() tenant.Service
 }
 
 type repository struct {
@@ -59,6 +65,16 @@ type repository struct {
 	datasetSvc    datasets.Service
 	toolsSvc      tools.Service
 	assistantsSvc assistants.Service
+	llmEvalSvc    llmeval.Service
+	tenantSvc     tenant.Service
+}
+
+func (r *repository) Tenants() tenant.Service {
+	return r.tenantSvc
+}
+
+func (r *repository) LLMEval() llmeval.Service {
+	return r.llmEvalSvc
 }
 
 func (r *repository) Assistants() assistants.Service {
@@ -114,6 +130,8 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 	datasetSvc := datasets.New(db)
 	toolsSvc := tools.New(db)
 	assistantsSvc := assistants.New(db)
+	llmEvalSvc := llmeval.New(db)
+	tenantSvc := tenant.New(db)
 
 	if logger != nil {
 		chatSvc = chat.NewLogging(logger, traceId)(chatSvc)
@@ -125,6 +143,8 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		datasetSvc = datasets.NewLogging(logger, traceId)(datasetSvc)
 		toolsSvc = tools.NewLogging(logger, traceId)(toolsSvc)
 		assistantsSvc = assistants.NewLogging(logger, traceId)(assistantsSvc)
+		llmEvalSvc = llmeval.NewLogging(logger, traceId)(llmEvalSvc)
+		tenantSvc = tenant.NewLogging(logger, traceId)(tenantSvc)
 	}
 
 	if tracer != nil {
@@ -137,6 +157,8 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		datasetSvc = datasets.NewTracing(tracer)(datasetSvc)
 		toolsSvc = tools.NewTracing(tracer)(toolsSvc)
 		assistantsSvc = assistants.NewTracing(tracer)(assistantsSvc)
+		llmEvalSvc = llmeval.NewTracing(tracer)(llmEvalSvc)
+		tenantSvc = tenant.NewTracing(tracer)(tenantSvc)
 	}
 
 	return &repository{
@@ -150,5 +172,7 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		datasetSvc:    datasetSvc,
 		toolsSvc:      toolsSvc,
 		assistantsSvc: assistantsSvc,
+		llmEvalSvc:    llmEvalSvc,
+		tenantSvc:     tenantSvc,
 	}
 }

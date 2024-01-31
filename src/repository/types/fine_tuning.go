@@ -129,13 +129,15 @@ type FineTuningTrainJob struct {
 	TrainLog string `gorm:"column:train_log;type:longtext;null;comment:训练日志"`
 	// TenantID 租户ID
 	TenantID uint `gorm:"column:tenant_id;type:bigint(20);NOT NULL"`
+	// StartTrainTime 开始训练时间
+	StartTrainTime *time.Time `gorm:"column:start_train_time;null;comment:开始训练时间"`
 
 	// Template 微调模版
 	Template FineTuningTemplate `gorm:"foreignKey:TemplateId;references:ID"`
 	// Files 文件
 	FineTuningFile Files `gorm:"foreignKey:FileId;references:file_id"`
-	// StartTrainTime 开始训练时间
-	StartTrainTime *time.Time `gorm:"column:start_train_time;null;comment:开始训练时间"`
+	// BaseModelInfo 基础模型
+	BaseModelInfo *Models `gorm:"foreignKey:BaseModel;references:ModelName"`
 }
 
 // TableName sets the insert table name for this struct type

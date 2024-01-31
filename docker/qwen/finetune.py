@@ -426,4 +426,5 @@ if __name__ == "__main__":
         message = str(e)
         print("发生了一个异常:", str(e))
 
-    job_finished(status, message)
+    if local_rank <= 0:
+        job_finished(status, message)

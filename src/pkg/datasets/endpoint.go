@@ -78,7 +78,7 @@ type (
 		// Messages 对话消息
 		Messages []message `json:"messages" validate:"required"`
 		// System 系统
-		System string `json:"system,omitempty"`
+		System string `json:"sys,omitempty"`
 		// Instruction 意图
 		Instruction string `json:"instruction,omitempty"`
 		// Input 输入

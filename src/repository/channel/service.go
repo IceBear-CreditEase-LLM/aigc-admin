@@ -19,11 +19,32 @@ type Service interface {
 	UpdateChannel(ctx context.Context, data *types.ChatChannels) (err error)
 	// DeleteChannel 删除渠道
 	DeleteChannel(ctx context.Context, id uint) (err error)
+	// AddChannelModels 批量添加渠道模型
+	AddChannelModels(ctx context.Context, channelId uint, models ...*types.Models) (err error)
 }
 
 type service struct {
 	db *gorm.DB
 }
+
+func (s *service) AddChannelModels(ctx context.Context, channelId uint, models ...*types.Models) (err error) {
+	channelInfo, err := s.FindChannelById(ctx, channelId)
+	if err != nil {
+		return
+	}
+	err = s.db.WithContext(ctx).Model(&channelInfo).Association("ChannelModels").Append(models)
+	return
+}
+
+func (s *service) FindChannelById(ctx context.Context, id uint, preloads ...string) (res types.ChatChannels, err error) {
+	db := s.db.WithContext(ctx)
+	for _, preload := range preloads {
+		db = db.Preload(preload)
+	}
+	err = db.Where("id = ?", id).First(&res).Error
+	return
+}
+
 type ListChannelRequest struct {
 	Page        int     `json:"page"`
 	PageSize    int     `json:"pageSize"`

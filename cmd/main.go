@@ -14,13 +14,13 @@ import (
 
 var (
 	//go:embed web
-	webSwaggerFs embed.FS
+	webFs embed.FS
 	//go:embed data
 	dataFs embed.FS
 )
 
 func main() {
-	service.WebSwaggerFs = webSwaggerFs
+	service.WebFs = webFs
 	service.DataFs = dataFs
 	service.Run()
 }

@@ -9,7 +9,6 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/go-redis/redis/v8"
 	"net/url"
@@ -94,25 +93,21 @@ func CheckAuthMiddleware(logger log.Logger, rdb redis.UniversalClient, tracer op
 				return
 			}
 
-			// 区分一下token 来源
-			_ = level.Info(logger).Log("tk", "Claims", "source", claim.Source, "QwUserid", claim.QwUserid, "UserId", claim.UserId, "Email", claim.Email)
-
-			switch claim.Source {
-			case asdjwt.TokenSourceQw: //企微
-				if claim.QwUserid == "" {
-					return nil, encode.ErrAuthNotLogin.Error()
-				}
-				ctx = context.WithValue(ctx, ContextKeyUserEmail, fmt.Sprintf("%s@admin.cn", claim.QwUserid))
-				break
-			default:
-				// 查询用户是否退出
-				if rdbTK := rdb.Get(ctx, fmt.Sprintf("login:%d:token", claim.UserId)).Val(); rdbTK == "" {
-					_ = level.Error(logger).Log("cache", "Get", "key", fmt.Sprintf("login:%d:token", claim.UserId))
-					err = encode.ErrAuthNotLogin.Error()
-					return nil, err
-				}
+			if claim.Email == "" {
+				return nil, encode.ErrAuthNotLogin.Error()
 			}
 
+			// 区分一下token 来源
+			//_ = level.Info(logger).Log("tk", "Claims", "source", claim.Source, "QwUserid", claim.QwUserid, "UserId", claim.UserId, "Email", claim.Email)
+
+			// 查询用户是否退出
+			//if rdbTK := rdb.Get(ctx, fmt.Sprintf("login:%d:token", claim.UserId)).Val(); rdbTK == "" {
+			//	_ = level.Error(logger).Log("cache", "Get", "key", fmt.Sprintf("login:%d:token", claim.UserId))
+			//	err = encode.ErrAuthNotLogin.Error()
+			//	return nil, err
+			//}
+
+			ctx = context.WithValue(ctx, ContextKeyUserEmail, claim.Email)
 			ctx = context.WithValue(ctx, ContextUserId, claim.UserId)
 			ctx = context.WithValue(ctx, "Authorization", token)
 			return next(ctx, request)

@@ -13,6 +13,32 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (t *tracing) FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "FindFineTuningJobRunning", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "repository.finetuning",
+	})
+	defer func() {
+		span.LogKV("jobs", jobs, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return t.next.FindFineTuningJobRunning(ctx, preloads...)
+}
+
+func (t *tracing) FindFineTuningTemplateByType(ctx context.Context, modelName string, templateType types.TemplateType) (tpl types.FineTuningTemplate, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "FindFineTuningTemplateByType", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "repository.finetuning",
+	})
+	defer func() {
+		span.LogKV("modelName", modelName, "templateType", templateType, "tpl", tpl, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return t.next.FindFineTuningTemplateByType(ctx, modelName, templateType)
+}
+
 func (t *tracing) GetFineTuningJobByModelName(ctx context.Context, modelName string, preloads ...string) (job types.FineTuningTrainJob, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "GetFineTuningJobByModelName", opentracing.Tag{
 		Key:   string(ext.Component),

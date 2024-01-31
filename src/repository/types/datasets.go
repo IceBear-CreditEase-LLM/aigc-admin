@@ -57,13 +57,13 @@ type DatasetSample struct {
 	// System 系统内容
 	System string `gorm:"column:system;size:1000;null;comment:系统内容"`
 	// Instruction 意图
-	Instruction string `gorm:"instruction:system;size:2000;null;comment:意图"`
+	Instruction string `gorm:"column:instruction;size:2000;null;comment:意图"`
 	// Input 输入
-	Input string `gorm:"input:system;size:2000;null;comment:输入"`
+	Input string `gorm:"column:input;type:text;null;comment:输入"`
 	// Output 输出
-	Output string `gorm:"input:output;size:5000;null;comment:输出"`
+	Output string `gorm:"column:output;size:5000;null;comment:输出"`
 	// Conversations 内容
-	Conversations string `gorm:"column:conversations;size:5000;null;comment:内容"`
+	Conversations string `gorm:"column:conversations;type:text;null;comment:内容"`
 	// Label 标签
 	Label string `gorm:"column:label;size:64;null;comment:标签"`
 	// Remark 备注

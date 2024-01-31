@@ -14,6 +14,31 @@ type logging struct {
 	traceId string
 }
 
+func (l *logging) FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.FindFineTuningJobRunning(ctx, preloads...)
+}
+
+func (l *logging) FindFineTuningTemplateByType(ctx context.Context, modelName string, templateType types.TemplateType) (tpl types.FineTuningTemplate, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "FindFineTuningTemplateByType",
+			"modelName", modelName,
+			"templateType", templateType,
+			"tpl", tpl,
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.FindFineTuningTemplateByType(ctx, modelName, templateType)
+}
+
 func (l *logging) GetFineTuningJobByModelName(ctx context.Context, modelName string, preloads ...string) (job types.FineTuningTrainJob, err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(

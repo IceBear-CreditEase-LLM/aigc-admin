@@ -46,10 +46,28 @@ type Service interface {
 	ListFineTuningTemplate(ctx context.Context, request ListFineTuningTemplateRequest) (res []types.FineTuningTemplate, total int64, err error)
 	// GetFineTuningJobByModelName 根据模型名称查找微调任务
 	GetFineTuningJobByModelName(ctx context.Context, modelName string, preloads ...string) (job types.FineTuningTrainJob, err error)
+	// FindFineTuningTemplateByType 根据类型查找微调模版
+	FindFineTuningTemplateByType(ctx context.Context, modelName string, templateType types.TemplateType) (tpl types.FineTuningTemplate, err error)
+	// FindFineTuningJobRunning 查找正在运行的任务
+	FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error)
 }
 
 type service struct {
 	db *gorm.DB
+}
+
+func (s *service) FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error) {
+	db := s.db.WithContext(ctx)
+	for _, preload := range preloads {
+		db = db.Preload(preload)
+	}
+	err = db.Where("train_status = ?", types.TrainStatusRunning).Find(&jobs).Error
+	return
+}
+
+func (s *service) FindFineTuningTemplateByType(ctx context.Context, modelName string, templateType types.TemplateType) (tpl types.FineTuningTemplate, err error) {
+	err = s.db.WithContext(ctx).Where("base_model = ? AND template_type = ?", modelName, templateType).First(&tpl).Error
+	return
 }
 
 func (s *service) GetFineTuningJobByModelName(ctx context.Context, modelName string, preloads ...string) (job types.FineTuningTrainJob, err error) {
@@ -78,6 +96,10 @@ func (s *service) CountFineTuningJobDuration(ctx context.Context) (res int64, er
 	err = s.db.WithContext(ctx).Model(&types.FineTuningTrainJob{}).Where("train_status in ?", []types.TrainStatus{
 		types.TrainStatusSuccess, types.TrainStatusFailed,
 	}).Select("sum(train_duration) as total").Scan(&res).Error
+	if err != nil {
+		res = 0
+		err = nil
+	}
 	return
 }
 

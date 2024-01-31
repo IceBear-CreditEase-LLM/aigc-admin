@@ -217,3 +217,13 @@ func IsUrl(path string) bool {
 	u, err := url.ParseRequestURI(path)
 	return err == nil && u.Scheme != "" && u.Host != ""
 }
+
+// RoundToTwoDecimalPlaces 保留两位小数
+func RoundToTwoDecimalPlaces(f float64) float64 {
+	return math.Round(f*100) / 100
+}
+
+// RoundToFourDecimalPlaces 保留四位小数
+func RoundToFourDecimalPlaces(f float64) float64 {
+	return math.Round(f*10000) / 10000
+}

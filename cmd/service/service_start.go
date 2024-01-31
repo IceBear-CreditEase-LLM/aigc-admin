@@ -18,10 +18,10 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/datasets"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/finetuning"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/langchain"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/models"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/sys"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/tools"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/tmc/langchaingo/llms/openai"
 	"net"
@@ -66,6 +66,24 @@ aigc-admin start -p :8080 -g :8082
 				_ = level.Error(logger).Log("cmd", "start.PreRunE", "err", err.Error())
 				return err
 			}
+			// 判断是否需要初始化数据，如果没有则初始化数据
+			if !gormDB.Migrator().HasTable(types.Accounts{}) {
+				if err = generateTable(); err != nil {
+					_ = level.Error(logger).Log("cmd.start.PreRunE", "generateTable", "err", err.Error())
+					return err
+				}
+				if err = initData(); err != nil {
+					_ = level.Error(logger).Log("cmd.start.PreRunE", "initData", "err", err.Error())
+					return err
+				}
+			}
+			//aigc-admin channelID
+			channelRes, err := store.Chat().FindChannelByApiKey(cmd.Context(), serverChannelKey)
+			if err != nil {
+				_ = level.Error(logger).Log("cmd.start.PreRunE", "FindChannelByApiKey", "err", err.Error())
+				return err
+			}
+			channelId = int(channelRes.ID)
 			return nil
 		},
 	}
@@ -74,11 +92,10 @@ aigc-admin start -p :8080 -g :8082
 
 	opts []kithttp.ServerOption
 
-	WebSwaggerFs embed.FS
-	DataFs       embed.FS
+	WebFs  embed.FS
+	DataFs embed.FS
 
-	authSvc      auth.Service
-	langchainSvc langchain.Service
+	authSvc auth.Service
 
 	fileSvc       files.Service
 	channelSvc    channels.Service
@@ -127,7 +144,7 @@ func start(ctx context.Context) (err error) {
 	})
 	channelSvc = channels.NewService(logger, traceId, store, apiSvc)
 	modelSvc = models.NewService(logger, traceId, store, apiSvc)
-	fineTuningSvc = finetuning.New(traceId, logger, store, serviceS3Bucket, serviceS3AccessKey, serviceS3SecretKey, apiSvc)
+	fineTuningSvc = finetuning.New(traceId, logger, store, serviceS3Bucket, serviceS3AccessKey, serviceS3SecretKey, apiSvc, rdb)
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)
 	datasetSvc = datasets.New(logger, traceId, store)
 	toolsSvc = tools.New(logger, traceId, store)

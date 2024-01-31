@@ -216,6 +216,7 @@ func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err e
 		Gpu:          request.Gpu,
 		Quantization: request.Quantization,
 		Vllm:         request.Vllm,
+		MaxGpuMemory: request.MaxGpuMemory,
 	}
 	err = s.apiSvc.PaasChat().DeployModel(ctx, req)
 	if err != nil {
@@ -264,8 +265,8 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 		provider = providerName(request.ModelName).String()
 	}
 	req := types.Models{
-		ProviderName: provider,
-		ModelType:    types.ModelTypeTextGeneration.String(),
+		ProviderName: types.ModelProvider(provider),
+		ModelType:    types.ModelTypeTextGeneration,
 		ModelName:    request.ModelName,
 		MaxTokens:    request.MaxTokens,
 		IsPrivate:    request.IsPrivate,
@@ -334,8 +335,8 @@ func (s *service) DeleteModel(ctx context.Context, id uint) (err error) {
 func convert(data *types.Models) Model {
 	m := Model{
 		Id:           data.ID,
-		ProviderName: data.ProviderName,
-		ModelType:    data.ModelType,
+		ProviderName: string(data.ProviderName),
+		ModelType:    string(data.ModelType),
 		ModelName:    data.ModelName,
 		MaxTokens:    data.MaxTokens,
 		IsPrivate:    data.IsPrivate,

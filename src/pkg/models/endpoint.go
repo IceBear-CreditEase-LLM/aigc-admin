@@ -116,6 +116,8 @@ type (
 		Gpu          int    `json:"gpu" validate:"gte=1"`
 		Quantization string `json:"quantization"`
 		Vllm         bool   `json:"vllm"`
+		// 指定每个 GPU 用于存储模型权重的最大内存。这允许它为激活分配更多内存，因此您可以使用更长的上下文长度或更大的批量大小。
+		MaxGpuMemory int `json:"maxGpuMemory"`
 	}
 )
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/alarm"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/finetuning"
@@ -13,29 +14,50 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/sashabaranov/go-openai"
 	"gorm.io/gorm"
 	"io"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"math"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
-// Service
+// Service 模型微调模块
 type Service interface {
+	// CreateJob 创建微调任务
 	CreateJob(ctx context.Context, tenantId uint, request CreateJobRequest) (response JobResponse, err error)
+	// ListJob 获取微调任务列表
 	ListJob(ctx context.Context, tenantId uint, request ListJobRequest) (response ListJobResponse, err error)
+	// CancelJob 取消微调任务
 	CancelJob(ctx context.Context, tenantId uint, jobId string) (err error)
+	// DashBoard 微调任务面板
 	DashBoard(ctx context.Context, tenantId uint) (res DashBoardResponse, err error)
+	// DeleteJob 删除微调任务
 	DeleteJob(ctx context.Context, tenantId uint, jobId string) (err error)
+	// GetJob 获取微调任务详情
 	GetJob(ctx context.Context, tenantId uint, jobId string) (response JobResponse, err error)
+	// ListTemplate 获取微调模板列表
 	ListTemplate(ctx context.Context, tenantId uint, request ListTemplateRequest) (response ListTemplateResponse, err error)
 	// Estimate 微调时间预估
 	Estimate(ctx context.Context, tenantId uint, request CreateJobRequest) (response EstimateResponse, err error)
+	// _createJob 创建训练任务
+	_createJob(ctx context.Context, tenantId, channelId uint, trainingFileId, model, suffix, validationFile string, epochs int) (res jobResult, err error)
+	// _cancelJob 取消微调任务
+	_cancelJob(ctx context.Context, channelId uint, fineTuningJob string) (res jobResult, err error)
+	// UpdateJobFinishedStatus 更新微调完成的任务状态 (训练脚本调用) train.sh 执行完之后调用
+	UpdateJobFinishedStatus(ctx context.Context, fineTuningJob string, status types.TrainStatus, message string) (err error)
+	// RunWaitingTrain 执行等待中的脚本 (定时任务) 通常每两分钟或每五分钟执行一次
+	RunWaitingTrain(ctx context.Context) (err error)
+	// _createFineTuningJob 创建微调任务
+	_createFineTuningJob(ctx context.Context, jobId string) (err error)
 }
 
 type service struct {
@@ -47,6 +69,446 @@ type service struct {
 	bucketName  string
 	s3AccessKey string
 	s3SecretKey string
+	mu          sync.Mutex
+	rdb         redis.UniversalClient
+}
+
+func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trainingFileId, baseModel, suffix, validationFile string, epochs int) (res jobResult, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	// 获取文件 查询文件信息
+	fileInfo, err := s.store.Files().FindFileByFileId(ctx, trainingFileId)
+	if err != nil {
+		_ = level.Warn(logger).Log("repository.Files", "FindFileByFileId", "err", err.Error())
+		return
+	}
+
+	// 判断是否是gpt模型
+	if strings.Contains(baseModel, "gpt-3.5") || strings.Contains(baseModel, "gpt-4") {
+		// 1. 获取文件上传到openai
+		fileId, err := s.uploadFileToOpenAi(ctx, &fileInfo)
+		if err != nil {
+			_ = level.Error(logger).Log("service", "uploadFileToOpenAi", "err", err.Error())
+			return res, err
+		}
+		// 2. 调用openai 创建微调任务
+		openAiFtJob, err := s.api.FastChat().CreateFineTuningJob(ctx, openai.FineTuningJobRequest{
+			TrainingFile:    fileId,
+			ValidationFile:  "",
+			Model:           baseModel,
+			Hyperparameters: &openai.Hyperparameters{Epochs: epochs},
+			Suffix:          suffix,
+		})
+		if err != nil {
+			_ = level.Error(logger).Log("api.FastChat", "CreateFineTuningJob", "err", err.Error())
+			return res, errors.Wrap(err, "api.FastChat.CreateFineTuningJob")
+		}
+		// 3. 入库
+		// 创建job
+		ftJob := &types.FineTuningTrainJob{
+			JobId:          openAiFtJob.ID,
+			ChannelId:      channelId,
+			BaseModel:      baseModel,
+			FineTunedModel: openAiFtJob.FineTunedModel,
+			ValidationFile: openAiFtJob.ValidationFile,
+			TrainEpoch:     epochs,
+			FileUrl:        fileInfo.S3Url,
+			TrainStatus:    types.TrainStatusWaiting,
+			TenantID:       tenantId,
+		}
+		if err = s.store.FineTuning().CreateFineTuningJob(ctx, ftJob); err != nil {
+			res.Error = err.Error()
+			_ = level.Error(logger).Log("repository.FineTuningJob", "CreateFineTuningJob", "err", err.Error())
+			return res, err
+		}
+
+		res.CreatedAt = openAiFtJob.CreatedAt
+		res.Id = openAiFtJob.ID
+		res.Model = openAiFtJob.Model
+		res.TrainingFile = openAiFtJob.TrainingFile
+		res.ValidationFile = openAiFtJob.ValidationFile
+		res.HyperParameters.NEpochs = ftJob.TrainEpoch
+		//res.Status = ftJob.TrainStatus
+		res.FineTunedModel = openAiFtJob.FineTunedModel
+
+		return res, nil
+	}
+
+	panUrl, err := s._fileConvertAlpaca(ctx, baseModel, fileInfo.S3Url)
+	if err != nil {
+		_ = level.Warn(logger).Log("service", "_fileConvertAlpaca", "err", err.Error())
+		return
+	}
+
+	// 根据模型获取模版
+	ftJobTpl, err := s.store.FineTuning().FindFineTuningTemplateByType(ctx, baseModel, types.TemplateTypeTrain)
+	if err != nil {
+		_ = level.Warn(logger).Log("repository.FineTuningJob", "FindFineTuningTemplateByModel", "err", err.Error())
+		return
+	}
+	if !strings.EqualFold(suffix, "") {
+		suffix = ":" + suffix
+	}
+	suffix = string(util.Krand(4, util.KC_RAND_KIND_LOWER)) + suffix
+
+	fineTunedModel := fmt.Sprintf("ft::%s:%d-%s", baseModel, tenantId, suffix)
+
+	// 创建job
+	ftJob := &types.FineTuningTrainJob{
+		JobId:          uuid.New().String(),
+		ChannelId:      channelId,
+		TemplateId:     ftJobTpl.ID,
+		BaseModel:      baseModel,
+		TrainEpoch:     epochs,
+		BaseModelPath:  ftJobTpl.BaseModelPath,
+		DataPath:       fmt.Sprintf("/data/train-data/%s", trainingFileId),
+		OutputDir:      fmt.Sprintf("%s/ft-%s-%d-%s", ftJobTpl.OutputDir, baseModel, tenantId, strings.ReplaceAll(strings.ReplaceAll(suffix, ".", "-"), ":", "-")),
+		ScriptFile:     ftJobTpl.ScriptFile,
+		MasterPort:     rand.IntnRange(20000, 30000),
+		FileUrl:        panUrl,
+		TrainStatus:    types.TrainStatusWaiting,
+		FineTunedModel: fineTunedModel,
+		ProcPerNode:    2,  // 暂时写死 这个得与GPU数量对应
+		TrainBatchSize: 8,  // 暂时写死
+		EvalBatchSize:  32, // 暂时写死
+		TenantID:       tenantId,
+	}
+	if err = s.store.FineTuning().CreateFineTuningJob(ctx, ftJob); err != nil {
+		res.Error = err.Error()
+		_ = level.Error(logger).Log("repository.FineTuningJob", "CreateFineTuningJob", "err", err.Error())
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			ftJob.TrainStatus = types.TrainStatusFailed
+			ftJob.ErrorMessage = err.Error()
+			if err = s.store.FineTuning().UpdateFineTuningJob(ctx, ftJob); err != nil {
+				_ = level.Error(logger).Log("repository.FineTuningJob", "UpdateFineTuningJob", "err", err.Error())
+				return
+			}
+		}
+	}()
+
+	res.CreatedAt = ftJob.CreatedAt.Unix()
+	res.Id = ftJob.JobId
+	res.Model = ftJob.BaseModel
+	res.TrainingFile = ftJob.DataPath
+	res.ValidationFile = ftJob.ValidationFile
+	res.HyperParameters.NEpochs = ftJob.TrainEpoch
+	//res.Status = ftJob.TrainStatus
+	res.FineTunedModel = ftJob.FineTunedModel
+	//res.TrainedTokens = ftJob.TrainedTokens
+
+	// 如果没有waiting 状态的任务直接调用_createJob创建执行
+	hasRunning, err := s.store.FineTuning().HasRunningJob(ctx)
+	if err != nil {
+		_ = level.Warn(logger).Log("repository.FineTuningJob", "HasRunningJob", "err", err.Error())
+		return res, nil
+	}
+	if !hasRunning {
+		// 如果没有等待中的任务，直接创建
+		if err = s._createFineTuningJob(ctx, ftJob.JobId); err != nil {
+			_ = level.Error(logger).Log("service", "_createFineTuningJob", "err", err.Error())
+			return res, err
+		}
+		_ = level.Info(logger).Log("msg", "没有正在运行的任务，直接创建", "jobId", ftJob.JobId)
+	}
+
+	return
+}
+
+func (s *service) uploadFileToOpenAi(ctx context.Context, fileInfo *types.Files) (fileId string, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	body, err := getHttpFileBody(fileInfo.S3Url)
+	if err != nil {
+		_ = level.Error(logger).Log("getHttpFileBody", "getHttpFileBody", "err", err.Error())
+		return "", err
+	}
+	// 创建临时文件
+	tmpfile, err := os.CreateTemp("", "example")
+	if err != nil {
+		_ = level.Error(logger).Log("msg", "创建临时文件失败", "err", err.Error())
+		return
+	}
+	defer tmpfile.Close()
+
+	_ = level.Info(logger).Log("msg", "创建临时文件", "tmpfile", tmpfile.Name())
+
+	// 写入去除序号后的文本到临时文件
+	if _, err := tmpfile.Write(body); err != nil {
+		_ = level.Error(logger).Log("msg", "写入临时文件失败", "err", err.Error())
+		return "", err
+	}
+	defer func(tempFilePath string) {
+		_ = os.Remove(tempFilePath)
+	}(tmpfile.Name())
+
+	// 上传到openai
+	openAiRes, err := s.api.FastChat().UploadFile(ctx, openai.GPT3Dot5Turbo, fileInfo.Name, tmpfile.Name(), fileInfo.Purpose)
+	if err != nil {
+		_ = level.Error(logger).Log("api.FastChat", "UploadFile", "err", err.Error())
+		return
+	}
+	return openAiRes.ID, nil
+}
+
+func (s *service) _cancelJob(ctx context.Context, channelId uint, fineTuningJob string) (res jobResult, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	// 查看相关数据
+	jobInfo, err := s.store.FineTuning().FindFineTuningJobByJobId(ctx, fineTuningJob, "Template")
+	if err != nil {
+		_ = level.Error(logger).Log("repository.FineTuningJob", "FindFineTuningJobByJobId", "err", err.Error())
+		return
+	}
+	// 调用paas强制删除job
+	//if err = s.api.Paas().DeleteJob(ctx, s.namespace, jobInfo.PaasJobName); err != nil {
+	//	_ = level.Error(logger).Log("api.Paas", "DeleteJob", "err", err.Error())
+	//	//return
+	//}
+	// 调用paas删除configmap
+	//serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
+	//serviceName = strings.ReplaceAll(serviceName, ".", "-")
+	//if err = s.api.Paas().DeleteConfigMap(ctx, s.namespace, serviceName, fmt.Sprintf("%s-config", serviceName)); err != nil {
+	//	_ = level.Error(logger).Log("api.Paas", "DeleteConfigMap", "err", err.Error())
+	//	//return
+	//}
+	// 更新数据库状态
+	jobInfo.TrainStatus = types.TrainStatusCancel
+	if err = s.store.FineTuning().UpdateFineTuningJob(ctx, &jobInfo); err != nil {
+		_ = level.Error(logger).Log("repository.FineTuningJob", "UpdateFineTuningJob", "err", err.Error())
+		return
+	}
+	return
+}
+
+func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob string, status types.TrainStatus, message string) (err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	lockKey := fmt.Sprintf("fine-tune:%s", fineTuningJob)
+	acquired, err := s.rdb.SetNX(ctx, lockKey, 1, 2*time.Minute).Result()
+	if err != nil {
+		_ = level.Warn(logger).Log("redis", "SetNX", "err", err.Error())
+		return
+	}
+	_ = level.Info(logger).Log("lockKey", lockKey, "acquired", acquired)
+	if acquired {
+		defer func() {
+			if rdbErr := s.rdb.Del(ctx, lockKey).Err(); rdbErr != nil {
+				_ = level.Warn(logger).Log("redis", "Del", "err", rdbErr.Error())
+			}
+		}()
+	}
+
+	// 查看相关数据
+	jobInfo, err := s.store.FineTuning().FindFineTuningJobByJobId(ctx, fineTuningJob, "Template", "BaseModelInfo")
+	if err != nil {
+		_ = level.Error(logger).Log("repository.FineTuningJob", "FindFineTuningJobByJobId", "err", err.Error())
+		err = errors.Wrap(err, "repository.FineTuningJob.FindFineTuningJobByJobId")
+		return
+	}
+	// 如果还没结束，更新数据 返回
+	if jobInfo.TrainStatus != types.TrainStatusRunning {
+		_ = level.Info(logger).Log("msg", "任务还没结束")
+		err = errors.New("任务还没结束")
+		return
+	}
+
+	t := time.Now()
+	// 如果已结束，更新数据
+	jobInfo.TrainStatus = status
+	if status == types.TrainStatusSuccess {
+		jobInfo.Progress = 1
+		jobInfo.FinishedAt = &t
+	}
+	if jobInfo.StartTrainTime != nil {
+		jobInfo.TrainDuration = int(time.Now().Unix() - jobInfo.StartTrainTime.Unix())
+	}
+	// message 截取后3000个字符
+	if len(message) > 3000 {
+		message = message[:3000]
+	}
+	jobInfo.ErrorMessage = message
+	if err = s.store.FineTuning().UpdateFineTuningJob(ctx, &jobInfo); err != nil {
+		_ = level.Error(logger).Log("repository.FineTuningJob", "UpdateFineTuningJob", "err", err.Error())
+		return errors.Wrap(err, "repository.FineTuningJob.UpdateFineTuningJob")
+	}
+	// 删除job 和configmap
+	// 调用paas强制删除job
+	//if err = s.api.Paas().DeleteJob(ctx, s.namespace, jobInfo.PaasJobName); err != nil {
+	//	_ = level.Error(logger).Log("api.Paas", "DeleteJob", "err", err.Error())
+	//	//_ = s.api.Alarm().Push(ctx, "微调任务删除job失败", fmt.Sprintf("微调任务删除job失败, jobName: %s, err: %s", jobInfo.PaasJobName, err.Error()), "paas-chat-api", alarm.LevelWarning, 5)
+	//}
+	// 调用paas删除configmap
+	//serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
+	//serviceName = strings.ReplaceAll(serviceName, ".", "-")
+	//if err = s.api.Paas().DeleteConfigMap(ctx, s.namespace, serviceName, fmt.Sprintf("%s-config", serviceName)); err != nil {
+	//	_ = level.Error(logger).Log("api.Paas", "DeleteConfigMap", "err", err.Error())
+	//	//_ = s.api.Alarm().Push(ctx, "微调任务删除configmap失败", fmt.Sprintf("微调任务删除configmap失败, serviceName: %s, err: %s", serviceName, err.Error()), "paas-chat-api", alarm.LevelWarning, 5)
+	//}
+
+	if status == types.TrainStatusFailed {
+		_ = level.Warn(logger).Log("msg", "任务失败")
+		return
+	}
+
+	model := &types.Models{
+		ProviderName: types.ModelProviderLocalAI,
+		ModelType:    types.ModelTypeTextGeneration,
+		ModelName:    jobInfo.FineTunedModel,
+		//BaseModelName: jobInfo.BaseModel,
+		MaxTokens:    jobInfo.ModelMaxLength,
+		IsPrivate:    true,
+		IsFineTuning: true,
+		Enabled:      false,
+		Remark:       jobInfo.Remark,
+		Parameters:   jobInfo.BaseModelInfo.Parameters,
+	}
+
+	if err = s.store.Model().CreateModel(ctx, model); err != nil {
+		_ = level.Error(logger).Log("repository.Models", "Create", "err", err.Error())
+		_ = s.api.Alarm().Push(ctx, "微调任务创建模型失败", fmt.Sprintf("微调任务创建模型失败, jobName: %s, err: %s", jobInfo.PaasJobName, err.Error()), "paas-chat-api", alarm.LevelInfo, 5)
+		return errors.Wrap(err, "repository.Models.Create")
+	}
+
+	// 将模型授权给租户，如果有channelId的话 同时也授权给渠道
+	if jobInfo.ChannelId != 0 {
+		if err = s.store.Channel().AddChannelModels(ctx, jobInfo.ChannelId, model); err != nil {
+			_ = level.Warn(logger).Log("msg", "update channel info failed", "err", err.Error())
+			return errors.Wrap(err, "repository.Channels.UpdateChannel")
+		}
+	}
+
+	tenantInfo, err := s.store.Tenants().FindTenant(ctx, jobInfo.TenantID)
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "find tenant info failed", "err", err.Error())
+		return errors.Wrap(err, "repository.Tenants.FindTenant")
+	}
+
+	//tenantInfo.Models = append(tenantInfo.Models, *model)
+	if err = s.store.Tenants().AddModel(ctx, tenantInfo.ID, model); err != nil {
+		_ = level.Warn(logger).Log("msg", "update tenant info failed", "err", err.Error())
+		return errors.Wrap(err, "repository.Tenants.UpdateTenant")
+	}
+
+	// 数据库获取等待中的微调任务
+	nextJobInfo, err := s.store.FineTuning().FindFineTuningJobLastByStatus(ctx, types.TrainStatusWaiting, "id asc")
+	if err != nil {
+		_ = level.Info(logger).Log("repository.FineTuningJob", "FindFineTuningJobLastByStatus", "err", err.Error())
+		return nil
+	}
+	// 开始启下一个微调任务
+	return s._createFineTuningJob(ctx, nextJobInfo.JobId)
+}
+
+func (s *service) RunWaitingTrain(ctx context.Context) (err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	// 数据库获取等待中的微调任务
+	jobs, err := s.store.FineTuning().FindFineTuningJobLastByStatus(ctx, types.TrainStatusWaiting, "id asc")
+	if err != nil {
+		_ = level.Error(logger).Log("repository.FineTuningJob", "FindFineTuningJobLastByStatus", "err", err.Error())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return
+	}
+	if jobs.ID == 0 {
+		_ = level.Info(logger).Log("msg", "没有等待中的微调任务")
+		return
+	}
+	// 开始启下一个微调任务
+	if err = s._createFineTuningJob(ctx, jobs.JobId); err != nil {
+		_ = level.Error(logger).Log("service", "_createFineTuningJob", "jobs.JobId", jobs.JobId, "err", err.Error())
+		return err
+	}
+	return
+}
+
+func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	jobInfo, err := s.store.FineTuning().FindFineTuningJobByJobId(ctx, jobId, "Template", "BaseModelInfo")
+	if err != nil {
+		_ = level.Error(logger).Log("repository.FineTuningJob", "FindFineTuningJobByJobId", "err", err.Error())
+		return
+	}
+	// 生成模版
+	tplContent, err := s.store.FineTuning().EncodeFineTuningJobTemplate(ctx, jobInfo.Template.Content, &jobInfo)
+	if err != nil {
+		_ = level.Error(logger).Log("repository.FineTuningJob", "EncodeFineTuningJobTemplate", "err", err.Error())
+		return errors.Wrap(err, "repository.FineTuningJob.EncodeFineTuningJobTemplate")
+	}
+	jobInfo.TrainScript = tplContent
+
+	//namespaceName := s.namespace
+	serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
+	serviceName = strings.ReplaceAll(serviceName, ".", "-")
+	// 创建服务名
+	//if err = s.api.Paas().CreateService(ctx, namespaceName, serviceName); err != nil {
+	//	_ = level.Warn(logger).Log("api.Paas", "CreateService", "err", err.Error())
+	//	//return errors.Wrap(err, "api.Paas.CreateService")
+	//}
+	// 创建configmap
+	//if err = s.api.Paas().CreateConfigMap(ctx, namespaceName, serviceName, fmt.Sprintf("%s-config", serviceName), map[string]string{
+	//	"train.sh": tplContent,
+	//}); err != nil {
+	//	_ = level.Error(logger).Log("api.Paas", "CreateConfigMap", "err", err.Error())
+	//	return errors.Wrap(err, "api.Paas.CreateConfigMap")
+	//}
+
+	//var memory = 192
+	//var cpu = jobInfo.ProcPerNode * 4
+	//if jobInfo.BaseModelInfo.Parameters > 33 {
+	//	memory = 348
+	//} else if jobInfo.BaseModelInfo.Parameters > 20 {
+	//	memory = 256
+	//} else if jobInfo.BaseModelInfo.Parameters > 10 {
+	//	memory = 192
+	//} else if jobInfo.BaseModelInfo.Parameters > 5 {
+	//	memory = 128
+	//} else {
+	//	memory = 96
+	//}
+
+	var jobName string
+	//if jobName, err = s.api.Paas().CreateJob(ctx, namespaceName, serviceName, jobInfo.Template.TrainImage, jobInfo.ProcPerNode, 0, 0, []string{
+	//	"/bin/sh",
+	//	"-c",
+	//	"/app/train.sh",
+	//}, []paas.Volume{
+	//	{
+	//		ConfigMapKey: []string{"train.sh"}, // configMap
+	//		MountPath:    "/app/",
+	//		Type:         1,
+	//		VolumeName:   fmt.Sprintf("%s-config", serviceName),
+	//	},
+	//	{
+	//		VolumeName: "aigc-data-cfs", // pvc
+	//		Type:       2,
+	//		MountPath:  "/data/ft-model",
+	//		SubPath:    "ft-model",
+	//	},
+	//	{
+	//		VolumeName: "aigc-data-cfs", // pvc
+	//		Type:       2,
+	//		MountPath:  "/data/base-model",
+	//		SubPath:    "base-model",
+	//	},
+	//}, s.gpuTolerationValue); err != nil {
+	//	_ = level.Error(logger).Log("api.Paas", "CreateJob", "err", err.Error())
+	//	return errors.Wrap(err, "api.Paas.CreateJob")
+	//}
+	t := time.Now()
+	jobInfo.PaasJobName = jobName
+	jobInfo.TrainStatus = types.TrainStatusRunning
+	jobInfo.StartTrainTime = &t
+	// 更新数据训
+	if err = s.store.FineTuning().UpdateFineTuningJob(ctx, &jobInfo); err != nil {
+		_ = level.Error(logger).Log("repository.FineTuningJob", "UpdateFineTuningJob", "err", err.Error())
+		return errors.Wrap(err, "repository.FineTuningJob.UpdateFineTuningJob")
+	}
+	// 定时任务去获取各job 的进度 这块就不处理了，定时任务去处理吧
+
+	return
 }
 
 func (s *service) Estimate(ctx context.Context, tenantId uint, request CreateJobRequest) (response EstimateResponse, err error) {
@@ -299,7 +761,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	return shareUrl, nil
 }
 
-func New(traceId string, logger log.Logger, store repository.Repository, bucketName, s3AccessKey, s3SecretKey string, apiSvc api.Service) Service {
+func New(traceId string, logger log.Logger, store repository.Repository, bucketName, s3AccessKey, s3SecretKey string, apiSvc api.Service, rdb redis.UniversalClient) Service {
 	return &service{
 		traceId:     traceId,
 		logger:      logger,
@@ -309,6 +771,7 @@ func New(traceId string, logger log.Logger, store repository.Repository, bucketN
 		s3SecretKey: s3SecretKey,
 		namespace:   "aigc",
 		api:         apiSvc,
+		rdb:         rdb,
 	}
 }
 

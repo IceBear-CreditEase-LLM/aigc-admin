@@ -38,6 +38,7 @@ type DeployModelRequest struct {
 	Gpu          int    `json:"gpu"`
 	Quantization string `json:"quantization"`
 	Vllm         bool   `json:"vllm"`
+	MaxGpuMemory int    `json:"maxGpuMemory"`
 }
 
 type Service interface {

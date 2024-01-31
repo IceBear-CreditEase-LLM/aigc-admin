@@ -143,7 +143,7 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 			previousMessages = append(previousMessages, schema.HumanChatMessage{Content: msg.Content})
 		} else if strings.EqualFold(msg.Role, "assistant") {
 			previousMessages = append(previousMessages, schema.AIChatMessage{Content: msg.Content})
-		} else if strings.EqualFold(msg.Role, "system") {
+		} else if strings.EqualFold(msg.Role, "sys") {
 			if strings.TrimSpace(msg.Content) != "" {
 				previousMessages = append(previousMessages, schema.SystemChatMessage{Content: msg.Content})
 			}

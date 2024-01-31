@@ -66,7 +66,7 @@ type ArithmeticGptClaims struct {
 //		Name:   email,
 //		StandardClaims: jwt.StandardClaims{
 //			ExpiresAt: expAt,
-//			Issuer:    "system",
+//			Issuer:    "sys",
 //		},
 //	}
 //

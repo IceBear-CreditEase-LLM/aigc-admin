@@ -92,10 +92,11 @@ func (s *service) CreateFile(ctx context.Context, request FileRequest) (file Fil
 	}
 
 	// 文件上传云盘
-	url, err := s.UploadToS3(ctx, request.file, request.FileType, false)
-	if err != nil {
-		return file, err
-	}
+	//url, err := s.UploadToS3(ctx, request.file, request.FileType, false)
+	//if err != nil {
+	//	return file, err
+	//}
+	// 文件上传到本地
 
 	// 保存文件信息到数据库
 	data := &types.Files{
@@ -104,7 +105,7 @@ func (s *service) CreateFile(ctx context.Context, request FileRequest) (file Fil
 		Size:       request.header.Size,
 		Type:       request.FileType,
 		Md5:        md5Str,
-		S3Url:      url,
+		S3Url:      "",
 		Purpose:    request.Purpose,
 		TenantID:   request.TenantId,
 		LineCount:  request.LineCount,

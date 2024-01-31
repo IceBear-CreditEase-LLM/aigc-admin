@@ -149,11 +149,9 @@ const (
 	DefaultServiceOpenAiToken = "sk-001"
 	DefaultServiceOpenAiModel = openai.GPT3Dot5Turbo
 	DefaultServiceOpenAiOrgId = ""
-	DefaultServiceSdHost      = "10.182.4.100:7871"
-	DefaultServiceSdRedisKey  = "sd:api:list"
 
 	// [ldap相关]
-	DefaultLdapHost        = "ldap.jishu.idc"
+	DefaultLdapHost        = "ldap"
 	DefaultLdapPort        = 389
 	DefaultLdapBaseDn      = "OU=HABROOT,DC=corp"
 	DefaultLdapBindUser    = "aigc_ldap"
@@ -163,7 +161,7 @@ const (
 	DefaultLdapAttributes  = "name,mail,userPrincipalName,displayName,sAMAccountName"
 
 	// [s3]
-	DefaultServiceS3Host         = "http://s3.jishu.idc"
+	DefaultServiceS3Host         = "http://s3"
 	DefaultServiceS3AccessKey    = ""
 	DefaultServiceS3SecretKey    = ""
 	DefaultServiceS3Bucket       = "aigc"

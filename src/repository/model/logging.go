@@ -14,6 +14,53 @@ type logging struct {
 	traceId string
 }
 
+func (l *logging) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.FindByModelId(ctx, modelId, preloads...)
+}
+
+func (l *logging) FindDeployPendingModels(ctx context.Context) (models []types.Models, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "FindDeployPendingModels",
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.FindDeployPendingModels(ctx)
+}
+
+func (l *logging) UpdateDeployStatus(ctx context.Context, modelId uint, status types.ModelDeployStatus) (err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "UpdateDeployStatus", "modelId", modelId, "status", status,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.UpdateDeployStatus(ctx, modelId, status)
+}
+
+func (l *logging) SetModelEnabled(ctx context.Context, modelId string, enabled bool) (err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "SetModelEnabled", "modelId", modelId, "enabled", enabled,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.SetModelEnabled(ctx, modelId, enabled)
+}
+
 func (l *logging) DeleteEval(ctx context.Context, id uint) (err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(

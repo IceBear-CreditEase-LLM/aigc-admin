@@ -185,7 +185,7 @@ func (s dynamicTool) httpSend(ctx context.Context, input string) (res string, er
 
 	var data interface{}
 
-	if strings.TrimSpace(input) != "" && strings.TrimSpace(input) != "None" {
+	if strings.TrimSpace(input) != "" && strings.TrimSpace(input) != "None" && strings.TrimSpace(input) != "{}" {
 		data = map[string]interface{}{}
 		// 解码JSON到map
 		err = json.Unmarshal([]byte(input), &data)

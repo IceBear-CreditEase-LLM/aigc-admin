@@ -24,3 +24,28 @@ services:
       - "6379:6379"
     volumes:
       - ./.cache/redis:/data
+  aigc-admin:
+    image: aigc-admin:0.0.0-pre-test
+    restart: always
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    command:
+      - aigc-admin
+      - start
+    depends_on:
+      - mysql
+      - redis
+  aigc-admin-cronjob:
+    image: aigc-admin:0.0.0-pre-test
+    restart: always
+    build:
+      dockerfile: Dockerfile
+    command:
+      - aigc-admin
+      - cronjob
+      - start
+    depends_on:
+      - mysql
+      - redis

@@ -1,9 +1,7 @@
 #!/bin/bash
-export AUTH=sk-q8oSE4F7ANJPI7L60NBEENAGYXbYdS6J7gPFDPIFx24
-export JOB_ID=cddcecd9-8df5-41e6-8ac2-269a4f758552-000
-export http_proxy=http://squid.jishu.idc:8000
-export https_proxy=http://squid.jishu.idc:8000
-export no_proxy="localhost,127.0.0.1,10.,.idc,.corp"
+export AUTH=
+export JOB_ID={{.JobId}}
+export CHAT_API_FINE_TUNE_URL=https://chat-api:8080/v1/fine_tuning/jobs/${JOB_ID}/finish
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 DIR=`pwd`

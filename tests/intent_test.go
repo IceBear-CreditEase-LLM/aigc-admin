@@ -172,7 +172,7 @@ func httpPost(question string) (result openai.ChatCompletionResponse, err error)
 	}).Endpoint()
 	var messages []openai.ChatCompletionMessage
 	messages = append(messages, openai.ChatCompletionMessage{
-		Role:    "system",
+		Role:    "sys",
 		Content: fmt.Sprintf(systemContent, question),
 	}, openai.ChatCompletionMessage{
 		Role:    "user",

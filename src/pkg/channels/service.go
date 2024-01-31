@@ -225,8 +225,8 @@ func convert(data *types.ChatChannels) Channel {
 	for _, v := range data.ChannelModels {
 		models = append(models, Model{
 			Id:           v.ID,
-			ProviderName: v.ProviderName,
-			ModelType:    v.ModelType,
+			ProviderName: string(v.ProviderName),
+			ModelType:    string(v.ModelType),
 			ModelName:    v.ModelName,
 			MaxTokens:    v.MaxTokens,
 			IsPrivate:    v.IsPrivate,
@@ -245,8 +245,8 @@ func convert(data *types.ChatChannels) Channel {
 func convertModel(data *types.Models) Model {
 	m := Model{
 		Id:           data.ID,
-		ProviderName: data.ProviderName,
-		ModelType:    data.ModelType,
+		ProviderName: string(data.ProviderName),
+		ModelType:    string(data.ModelType),
 		ModelName:    data.ModelName,
 		MaxTokens:    data.MaxTokens,
 		IsPrivate:    data.IsPrivate,

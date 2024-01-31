@@ -61,22 +61,14 @@ func TestService_AddTool(t *testing.T) {
 
 func TestService_Playground(t *testing.T) {
 	svc := initSvc()
-	_, err := svc.Playground(context.Background(), 1, "assistant-c681ff33-5932-433f-b780-257dd702347c", playgroundRequest{
+	_, err := svc.Playground(context.Background(), 1, "assistant-e21edba2-6717-4630-8d18-119ef2505cb3", playgroundRequest{
 		ModelName: "qwen-72b-chat-int4",
 		//ModelName: "gpt-4-1106-preview",
-		ToolIds: []string{"tool-09a9abdd-1a86-4f11-aac6-583e26a40f53", "tool-bb73b0ea-5123-4b5d-be89-a53adbf9e230"},
+		ToolIds: []string{"tool-3dbda16e-c395-4718-a682-d780faa89c61"},
 		Messages: []message{
 			{
 				Role:    "user",
-				Content: "您好！你是谁？",
-			},
-			{
-				Role:    "assistant",
-				Content: "我是宜信智语超级智能体，您可以问我问题，我会尽力回答您的问题。",
-			},
-			{
-				Role:    "user",
-				Content: "现在几点了？",
+				Content: "查一下集群的状态",
 			},
 		},
 	})

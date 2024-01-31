@@ -1,0 +1,3 @@
+[submodule "aigc-admin-web"]
+	path = aigc-admin-web
+	url = git@github.com:IceBear-CreditEase-LLM/aigc-admin-web.git
