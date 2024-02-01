@@ -34,6 +34,8 @@ type Service interface {
 	ListModels(ctx context.Context, request ListModelRequest) (res []types.Models, total int64, err error)
 	// CreateModel 创建模型
 	CreateModel(ctx context.Context, data *types.Models) (err error)
+	// CreateDeploy 创建部署模型
+	CreateDeploy(ctx context.Context, modelDeploy *types.ModelDeploy) (err error)
 	// GetModel 获取模型
 	GetModel(ctx context.Context, id uint, preload ...string) (res types.Models, err error)
 	// UpdateModel 更新模型
@@ -62,10 +64,20 @@ type Service interface {
 	SetModelEnabled(ctx context.Context, modelId string, enabled bool) (err error)
 	// FindByModelId 根据id查询模型
 	FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error)
+	// DeleteDeploy 删除部署
+	DeleteDeploy(ctx context.Context, modelId uint) (err error)
 }
 
 type service struct {
 	db *gorm.DB
+}
+
+func (s *service) DeleteDeploy(ctx context.Context, modelId uint) (err error) {
+	return s.db.WithContext(ctx).Where("model_id = ?", modelId).Delete(&types.ModelDeploy{}).Error
+}
+
+func (s *service) CreateDeploy(ctx context.Context, modelDeploy *types.ModelDeploy) (err error) {
+	return s.db.WithContext(ctx).Create(modelDeploy).Error
 }
 
 func (s *service) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {

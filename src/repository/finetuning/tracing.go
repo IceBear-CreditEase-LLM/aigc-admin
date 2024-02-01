@@ -13,6 +13,32 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (t *tracing) FindFineTunedModel(ctx context.Context, fineTunedModel string) (model types.FineTuningTrainJob, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "FindFineTunedModel", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "repository.finetuning",
+	})
+	defer func() {
+		span.LogKV("fineTunedModel", fineTunedModel, "model", model, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return t.next.FindFineTunedModel(ctx, fineTunedModel)
+}
+
+func (t *tracing) FindChannelById(ctx context.Context, id uint, preload ...string) (res types.ChatChannels, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "FindChannelById", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "repository.finetuning",
+	})
+	defer func() {
+		span.LogKV("id", id, "res", res, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return t.next.FindChannelById(ctx, id, preload...)
+}
+
 func (t *tracing) FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "FindFineTuningJobRunning", opentracing.Tag{
 		Key:   string(ext.Component),

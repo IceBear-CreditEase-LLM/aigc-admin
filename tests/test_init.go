@@ -86,6 +86,7 @@ const (
 	EnvNameServiceS3DownloadUrl  = "AIGC_SERVICE_S3_DOWNLOAD_URL"
 	EnvNameServiceS3ProjectName  = "AIGC_SERVICE_S3_PROJECT_NAME"
 	EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
+	EnvNameDockerWorkspace       = "AIGC_Docker_WORKSPACE" // chat-api 相关
 
 	// [LDAP 相关]
 	EnvNameLdapHost        = "AIGC_LDAP_HOST"
@@ -168,6 +169,7 @@ const (
 	DefaultServiceS3BucketPublic = "aigc"
 	DefaultServiceS3Region       = "default"
 	DefaultServiceS3Cluster      = "ceph-c2"
+	DefaultDockerWorkspace       = "/tmp"
 
 	DefaultServiceChatToken = ""
 )
@@ -205,6 +207,9 @@ var (
 
 	// [s3]
 	serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3Region, serviceS3Cluster string
+
+	// [docker]
+	dockerWorkspace string
 
 	// [ldap]相关
 	ldapHost, ldapBaseDn, ldapBindUser, ldapBindPass, ldapUserFilter, ldapGroupFilter string
@@ -295,6 +300,10 @@ func preRun() {
 	serviceS3Bucket = envString(EnvNameServiceS3Bucket, DefaultServiceS3Bucket)
 	serviceS3Region = envString(EnvNameServiceS3Region, DefaultServiceS3Region)
 	serviceS3Cluster = envString(EnvNameServiceS3Cluster, DefaultServiceS3Cluster)
+
+	// [docker]
+	dockerWorkspace = envString(EnvNameDockerWorkspace, DefaultDockerWorkspace)
+
 }
 
 func Init() (rdb redis.UniversalClient, apiSvc api.Service, err error) {
@@ -434,7 +443,7 @@ func prepare(ctx context.Context) error {
 			Host                   string
 			Namespace, ServiceName string
 		}{Host: serviceAlarmHost, Namespace: namespace, ServiceName: serverName},
-	}, clientOpts, rdb)
+	}, clientOpts, rdb, dockerWorkspace)
 
 	Logger = logger
 	return err

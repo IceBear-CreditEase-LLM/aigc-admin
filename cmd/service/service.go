@@ -90,6 +90,9 @@ const (
 	EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
 	EnvNameServiceChatHost       = "AIGC_SERVICE_CHAT_HOST"  // chat-api 相关
 	EnvNameServiceChatToken      = "AIGC_SERVICE_CHAT_TOKEN" // chat-api 相关
+	// [docker]
+	EnvNameDockerChatDataCfsPath = "AIGC_Docker_CHAT_DATA_CFS_PATH" // chat-api 相关
+	EnvNameDockerWorkspace       = "AIGC_Docker_WORKSPACE"          // chat-api 相关
 
 	// [LDAP 相关]
 	EnvNameLdapHost        = "AIGC_LDAP_HOST"
@@ -246,6 +249,10 @@ var (
 	rateBucketNum = 5000000
 	traceId       = logging.TraceId
 
+	// docker
+	workspace       string
+	aigcDataCfsPath string
+
 	// [cronjob]
 	cronJobAuto bool
 
@@ -319,6 +326,9 @@ Platform: ` + goOS + "/" + goArch + `
 	// [chat]
 	rootCmd.PersistentFlags().StringVar(&serviceChatHost, "service.chat.host", defaultServiceChatHost, "ChatApi 地址")
 	rootCmd.PersistentFlags().StringVar(&serviceChatToken, "service.chat.token", DefaultServiceChatToken, "ChatApi Token")
+	// [docker]
+	rootCmd.PersistentFlags().StringVar(&aigcDataCfsPath, "docker.datacfspath", "/tmp", "data CFS Path")
+	rootCmd.PersistentFlags().StringVar(&workspace, "docker.workspace", "/tmp", "任务配置文件的存放目录")
 
 	// [s3]
 	rootCmd.PersistentFlags().StringVar(&serviceS3Host, "service.s3.host", DefaultServiceS3Host, "S3服务地址")
@@ -520,7 +530,7 @@ func prepare(ctx context.Context) error {
 				ApiKey string
 			}{Host: serviceChatHost, ApiKey: serviceChatToken},
 		},
-	}, clientOpts, rdb)
+	}, clientOpts, rdb, workspace)
 
 	return err
 }
@@ -605,6 +615,8 @@ func Run() {
 	// [service.chat]
 	serviceChatHost = envString(EnvNameServiceChatHost, defaultServiceChatHost)
 	serviceChatToken = envString(EnvNameServiceChatToken, DefaultServiceChatToken)
+	aigcDataCfsPath = envString(EnvNameDockerChatDataCfsPath, "/tmp")
+	workspace = envString(EnvNameDockerWorkspace, "/tmp")
 
 	if err = rootCmd.Execute(); err != nil {
 		fmt.Println("rootCmd.Execute", err.Error())

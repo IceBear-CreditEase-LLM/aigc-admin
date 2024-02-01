@@ -50,10 +50,29 @@ type Service interface {
 	FindFineTuningTemplateByType(ctx context.Context, modelName string, templateType types.TemplateType) (tpl types.FineTuningTemplate, err error)
 	// FindFineTuningJobRunning 查找正在运行的任务
 	FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error)
+	// FindFineTunedModel 查找微调模型
+	FindFineTunedModel(ctx context.Context, fineTunedModel string) (model types.FineTuningTrainJob, err error)
+
+	// FindChannelById 根据id查询渠道
+	FindChannelById(ctx context.Context, id uint, preload ...string) (res types.ChatChannels, err error)
 }
 
 type service struct {
 	db *gorm.DB
+}
+
+func (s *service) FindChannelById(ctx context.Context, id uint, preloads ...string) (res types.ChatChannels, err error) {
+	db := s.db.WithContext(ctx)
+	for _, preload := range preloads {
+		db = db.Preload(preload)
+	}
+	err = db.Where("id = ?", id).First(&res).Error
+	return
+}
+
+func (s *service) FindFineTunedModel(ctx context.Context, fineTunedModel string) (model types.FineTuningTrainJob, err error) {
+	err = s.db.WithContext(ctx).Where("fine_tuned_model = ?", fineTunedModel).First(&model).Error
+	return
 }
 
 func (s *service) FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error) {

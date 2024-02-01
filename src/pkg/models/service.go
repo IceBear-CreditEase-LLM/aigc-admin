@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/paaschat"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/dockerapi"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/middleware"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/model"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
@@ -16,6 +17,10 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/utils"
+	"math/rand"
+	"net"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -34,7 +39,7 @@ type Service interface {
 	// DeleteModel 删除模型
 	DeleteModel(ctx context.Context, id uint) (err error)
 	// Deploy 模型部署
-	Deploy(ctx context.Context, request ModelDeployRequest) (err error)
+	Deploy(ctx context.Context, req ModelDeployRequest) (err error)
 	// Undeploy 模型取消部署
 	Undeploy(ctx context.Context, id uint) (err error)
 	// CreateEval 创建评估任务
@@ -45,13 +50,50 @@ type Service interface {
 	CancelEval(ctx context.Context, id uint) (err error)
 	// DeleteEval 删除评估任务
 	DeleteEval(ctx context.Context, id uint) (err error)
+	// SyncDeployStatus 同步部署状态 (供)
+	SyncDeployStatus(ctx context.Context, modelId string) error
 }
 
 type service struct {
-	logger  log.Logger
-	traceId string
-	store   repository.Repository
-	apiSvc  api.Service
+	logger          log.Logger
+	traceId         string
+	store           repository.Repository
+	apiSvc          api.Service
+	aigcDataCfsPath string
+}
+
+const (
+	// QuantizationType8Bit 1/4精度量化
+	QuantizationType8Bit string = "8bit"
+	// QuantizationTypeFloat16 半精度量化
+	QuantizationTypeFloat16 string = "float16"
+)
+
+func (s *service) SyncDeployStatus(ctx context.Context, modelId string) (err error) {
+	m, err := s.store.Model().FindByModelId(ctx, modelId, "ModelDeploy")
+	if err != nil {
+		return err
+	}
+
+	status, err := s.apiSvc.DockerApi().Status(ctx, m.ModelDeploy.PaasJobName)
+	if err != nil {
+		err = errors.Wrap(err, "dockerapi status")
+		return
+	}
+	var mStatus types.ModelDeployStatus
+	if status == "running" {
+		mStatus = types.ModelDeployStatusRunning
+	} else {
+		mStatus = types.ModelDeployStatusFailed
+	}
+
+	err = s.store.Model().UpdateDeployStatus(ctx, m.ID, mStatus)
+	if err != nil {
+		err = errors.Wrap(err, "update deploy status")
+		return
+	}
+
+	return nil
 }
 
 func (s *service) DeleteEval(ctx context.Context, id uint) (err error) {
@@ -168,61 +210,242 @@ func (s *service) CreateEval(ctx context.Context, request CreateEvalRequest) (re
 
 func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "Undeploy")
-	m, err := s.store.Model().GetModel(ctx, id)
-	if err != nil {
-		_ = level.Error(logger).Log("store.Model", "GetModel", "err", err.Error(), "id", id)
-		return
-	}
-	if !m.IsPrivate {
-		// 公有模型不需要部署
-		_ = level.Warn(logger).Log("msg", "public model not need undeploy", "modelName", m.ModelName)
-		return encode.Invalid.Wrap(errors.Errorf("public model not need undeploy, model:%s", m.ModelName))
+
+	channelId, ok := ctx.Value(middleware.ContextKeyChannelId).(int)
+	if !ok {
+		return encode.ErrChatChannelNotFound.Error()
 	}
 
-	// 调用API取消部署模型
-	err = s.apiSvc.PaasChat().UndeployModel(ctx, m.ModelName)
+	channelInfo, err := s.store.Channel().FindChannelById(ctx, uint(channelId), "Tenant.Models.ModelDeploy")
 	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
+		_ = level.Warn(logger).Log("msg", "find channel info failed", "err", err.Error())
 		return
 	}
+	var channelModel types.Models
+	if channelInfo.TenantId == 1 {
+		channelModel, err = s.store.Model().GetModel(ctx, id, "ModelDeploy")
+		if err != nil {
+			_ = level.Warn(logger).Log("msg", "find model info failed", "err", err.Error())
+			return errors.Wrap(err, "find model info failed")
+		}
+	} else {
+		for _, model := range channelInfo.Tenant.Models {
+			if model.ModelName == channelModel.ModelName {
+				channelModel = model
+				break
+			}
+		}
+	}
+	if !channelModel.IsPrivate {
+		// 公有模型不需要部署
+		_ = level.Warn(logger).Log("msg", "public model not need undeploy", "modelName", channelModel.ModelName)
+		return encode.Invalid.Wrap(errors.Errorf("public model not need undeploy, model:%s", channelModel.ModelName))
+	}
+
+	err = s.apiSvc.DockerApi().Remove(ctx, channelModel.ModelDeploy.PaasJobName)
+	if err != nil {
+		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error(), "modelName", channelModel.ModelName)
+		err = errors.Wrap(err, "dockerapi remove")
+		return
+	}
+
+	// 更新models状态, 取消channel授权
+	if err = s.store.Model().DeleteDeploy(ctx, channelModel.ID); err != nil {
+		_ = level.Warn(logger).Log("msg", "delete channel model deploy failed", "err", err.Error())
+	}
+	if err = s.store.Channel().RemoveChannelModels(ctx, uint(channelId), channelModel); err != nil {
+		_ = level.Warn(logger).Log("msg", "remove channel model failed", "err", err.Error())
+	}
+	// 更新models状态
+	if err = s.store.Model().SetModelEnabled(ctx, channelModel.ModelName, false); err != nil {
+		_ = level.Warn(logger).Log("msg", "set channel model enabled failed", "err", err.Error())
+	}
+	_ = level.Info(logger).Log("msg", "undeploy model success")
+
+	// 调用API取消部署模型
+	//err = s.apiSvc.PaasChat().UndeployModel(ctx, m.ModelName)
+	//if err != nil {
+	//	_ = level.Error(logger).Log("api.PaasChat", "UndeployModel", "err", err.Error(), "modelName", m.ModelName)
+	//	return
+	//}
 	return
 }
 
-func (s *service) Deploy(ctx context.Context, request ModelDeployRequest) (err error) {
-	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "Deploy")
-	m, err := s.store.Model().GetModel(ctx, request.Id)
+func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+
+	channelModel, err := s.store.Model().GetModel(ctx, req.Id)
+
 	if err != nil {
-		_ = level.Error(logger).Log("store.Model", "GetModel", "err", err.Error(), "request", fmt.Sprintf("%+v", request))
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return encode.InvalidParams.Wrap(errors.New("模型不存在"))
+		_ = level.Warn(logger).Log("msg", "find model info failed", "err", err.Error())
+		return errors.Wrap(err, "find model info failed")
+	}
+
+	channelInfo, err := s.store.Channel().FindChannelById(ctx, req.ChannelId, "Tenant.Models.ModelDeploy", "ChannelModels")
+	if err != nil {
+		_ = level.Warn(logger).Log("msg", "find channel info failed", "err", err.Error())
+		return
+	}
+	//var channelModel types.Models
+	//
+	//if channelInfo.TenantId == 1 {
+	//	channelModel, err = s.store.Model().FindByModelId(ctx, req.ModelId)
+	//	if err != nil {
+	//		_ = level.Warn(logger).Log("msg", "find model info failed", "err", err.Error())
+	//		return errors.Wrap(err, "find model info failed")
+	//	}
+	//} else {
+	//	for _, model := range channelInfo.Tenant.Models {
+	//		if model.ModelName == req.ModelId {
+	//			channelModel = model
+	//			break
+	//		}
+	//	}
+	//}
+
+	// 判断是否已经部署
+	//if channelModel.Enabled {
+	//	_ = level.Warn(logger).Log("msg", "channel model already deployed", "modelId", modelId)
+	//	err = errors.New("channel model already deployed")
+	//	return
+	//}
+
+	// 判断是否是私有模型
+	if !channelModel.IsPrivate {
+		_ = level.Warn(logger).Log("msg", "channel model is not private", "modelId", req.Id)
+		err = errors.New("channel model is not private")
+		return
+	}
+
+	if channelModel.ModelDeploy.ID > 0 {
+		_ = level.Warn(logger).Log("msg", "channel model already deployed", "modelId", req.Id)
+		err = errors.New("channel model already deployed")
+		return
+	}
+	var baseModelName = channelModel.ModelName
+	serviceName := strings.ReplaceAll(strings.ReplaceAll(channelModel.ModelName, "::", "-"), ":", "-")
+	serviceName = strings.ReplaceAll(serviceName, ".", "-")
+	var modelPath = fmt.Sprintf("/data/base-model/%s", serviceName)
+	var subPath = "base-model"
+	// 判断是否是微调模型
+	if channelModel.IsFineTuning {
+		modelPath = fmt.Sprintf("/data/ft-model/%s", serviceName)
+		subPath = "ft-model"
+		trainJobInfo, err := s.store.FineTuning().FindFineTunedModel(ctx, channelModel.ModelName)
+		if err != nil {
+			_ = level.Warn(logger).Log("msg", "find fine tuning job failed", "err", err.Error())
+			return errors.Wrap(err, "find fine tuning job failed")
 		}
-		return encode.ErrSystem.Wrap(errors.New("查询模型异常"))
+		baseModelName = trainJobInfo.BaseModel
 	}
-	if !m.IsPrivate {
-		// 公有模型不需要部署
-		_ = level.Warn(logger).Log("msg", "public model not need deploy", "modelName", m.ModelName)
-		return encode.Invalid.Wrap(errors.Errorf("public model not need deploy, model:%s", m.ModelName))
-	}
-	if m.Enabled {
-		// 已经被部署
-		_ = level.Warn(logger).Log("msg", "model already deployed", "modelName", m.ModelName)
-		return errors.Errorf("模型%s已部署", m.ModelName)
-	}
-	// 调用API部署模型
-	req := paaschat.DeployModelRequest{
-		ModelName:    m.ModelName,
-		Replicas:     request.Replicas,
-		Label:        request.Label,
-		Gpu:          request.Gpu,
-		Quantization: request.Quantization,
-		Vllm:         request.Vllm,
-		MaxGpuMemory: request.MaxGpuMemory,
-	}
-	err = s.apiSvc.PaasChat().DeployModel(ctx, req)
+	_ = level.Info(logger).Log("baseModelName", baseModelName)
+
+	//if strings.Contains(serviceName, "-33b") || strings.Contains(serviceName, "-34b") {
+	//	cpuNum = 12
+	//	memory = 96
+	//}
+	//if strings.Contains(serviceName, "-70b") || strings.Contains(serviceName, "-72b") {
+	//	cpuNum = 24
+	//	memory = 168
+	//}
+
+	// 从数据库获取推理镜像得脚本
+	inferenceTemplate, err := s.store.FineTuning().FindFineTuningTemplateByType(ctx, baseModelName, types.TemplateTypeInference)
 	if err != nil {
-		_ = level.Error(logger).Log("api.PaasChat", "DeployModel", "err", err.Error(), "modelName", m.ModelName)
-		return encode.ErrSystem.Wrap(errors.New("部署模型异常" + err.Error()))
+		_ = level.Warn(logger).Log("msg", "find inference template failed", "err", err.Error())
+		//return errors.Wrap(err, "find inference template failed")
 	}
+
+	if inferenceTemplate.TrainImage == "" {
+		inferenceTemplate.TrainImage = "nginx"
+	}
+	var quantization string
+	if req.Quantization == QuantizationType8Bit {
+		quantization = "--load-8bit"
+	}
+
+	var modelWorker = "fastchat.serve.model_worker"
+	if req.Vllm {
+		// tokenizer 需要提前在镜像预置好
+		modelWorker = "fastchat.serve.vllm_worker --tokenizer /data/huggingface/hf-internal-testing/llama-tokenizer"
+	}
+
+	var port = 8080
+	var randomPort = 0
+	rand.Seed(time.Now().UnixNano())
+
+	for i := 0; i < 10; i++ {
+		if randomPort == 0 {
+			randomPort = rand.Intn(60000-50000+1) + 50000
+			addr := fmt.Sprintf("127.0.0.1:%d", randomPort)
+			var listener net.Listener
+			listener, err = net.Listen("tcp", addr)
+			if err == nil {
+				listener.Close() // 不要忘记关闭监听器
+				break
+			}
+		}
+	}
+
+	if randomPort == 0 {
+		err = fmt.Errorf("random port failed")
+		return
+	}
+
+	// 生成部署命令
+	startShell := fmt.Sprintf(`python3.10 -m %s --host 0.0.0.0 --port %d \
+--controller-address %s --worker-address http://$MY_POD_IP:%d --model-name %s \
+--model-path %s %s --num-gpus %d`, modelWorker, port, "http://fschat-controller.paas.paas.idc", randomPort,
+		channelModel.ModelName, modelPath, quantization, req.Gpu)
+
+	cid, err := s.apiSvc.DockerApi().Create(ctx, serviceName, dockerapi.Config{
+		Image: inferenceTemplate.TrainImage,
+		//Command: []string{"/bin/sh", "-c", "/app/start.sh"},
+		Ports: map[string]string{strconv.Itoa(randomPort): strconv.Itoa(port)},
+		Volumes: []dockerapi.Volume{{
+			Key:   "start.sh",
+			Value: "/app/start.sh",
+		}, {
+			Key:   "/data/" + subPath,
+			Value: filepath.Join(s.aigcDataCfsPath, subPath),
+		}},
+		ConfigData: map[string]string{
+			"start.sh": startShell,
+		},
+	})
+
+	if err != nil {
+		_ = level.Error(logger).Log("api.DockerApi", "Create", "err", err.Error())
+		return errors.Wrap(err, "api.DockerApi.Create")
+	}
+
+	// 插入部署表
+	if err = s.store.Model().CreateDeploy(ctx, &types.ModelDeploy{
+		ModelID:     channelModel.ID,
+		ModelPath:   modelPath,
+		Status:      types.ModelDeployStatusPending.String(),
+		PaasJobName: cid,
+	}); err != nil {
+		_ = level.Error(logger).Log("msg", "create channel model deploy failed", "err", err.Error())
+		err = errors.Wrap(err, "create channel model deploy failed")
+		return
+	}
+
+	// 如果channel 没有的话，授权给当前这个channel
+	var channelModelExists bool
+	for _, model := range channelInfo.ChannelModels {
+		if model.ModelName == channelModel.ModelName {
+			channelModelExists = true
+			break
+		}
+	}
+	if !channelModelExists {
+		if err = s.store.Channel().AddChannelModels(ctx, req.ChannelId, &channelModel); err != nil {
+			_ = level.Warn(logger).Log("msg", "add channel model failed", "err", err.Error())
+		}
+	}
+
+	_ = level.Info(logger).Log("msg", "deploy model success")
 	return
 }
 
@@ -404,12 +627,13 @@ func providerName(m string) types.ModelProvider {
 	return types.ModelProviderLocalAI
 }
 
-func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc api.Service) Service {
+func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc api.Service, aigcDataCfsPath string) Service {
 	return &service{
-		logger:  log.With(logger, "service", "models"),
-		traceId: traceId,
-		store:   store,
-		apiSvc:  apiSvc,
+		logger:          log.With(logger, "service", "models"),
+		traceId:         traceId,
+		store:           store,
+		apiSvc:          apiSvc,
+		aigcDataCfsPath: aigcDataCfsPath,
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/alarm"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/azure"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/dockerapi"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/ldapcli"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/paaschat"
@@ -60,6 +61,8 @@ type Service interface {
 	PaasChat() paaschat.Service
 	// Azure 微软服务
 	Azure() azure.Service
+
+	DockerApi() dockerapi.Service
 }
 
 type api struct {
@@ -71,6 +74,11 @@ type api struct {
 	ldapSvc     ldapcli.Service
 	paasChatSvc paaschat.Service
 	azure       azure.Service
+	dockerapi   dockerapi.Service
+}
+
+func (s *api) DockerApi() dockerapi.Service {
+	return s.dockerapi
 }
 
 func (s *api) Ldap() ldapcli.Service {
@@ -98,7 +106,7 @@ func (s *api) Azure() azure.Service {
 }
 
 // NewApi 中间件有顺序,在后面的会最先执行
-func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tracer opentracing.Tracer, cfg *Config, opts []kithttp.ClientOption, rdb redis.UniversalClient) Service {
+func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tracer opentracing.Tracer, cfg *Config, opts []kithttp.ClientOption, rdb redis.UniversalClient, workspace string) Service {
 	logger = log.With(logger, "api", "Api")
 	if debug {
 		opts = append(opts, kithttp.ClientBefore(func(ctx context.Context, request *http.Request) context.Context {
@@ -124,6 +132,7 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 	ldapSvc := ldapcli.New(cfg.Ldap)
 	paasChatSvc := paaschat.New(logger, cfg.PaasChat, opts)
 	azureSvc := azure.New(logger, cfg.Azure, opts)
+	dockerapiSvc := dockerapi.New(workspace)
 
 	if logger != nil {
 		ldapSvc = ldapcli.NewLogging(logger, traceId)(ldapSvc)
@@ -132,6 +141,7 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		fastChatSvc = fastchat.NewLogging(logger, traceId)(fastChatSvc)
 		paasChatSvc = paaschat.NewLogging(logger, traceId)(paasChatSvc)
 		azureSvc = azure.NewLogging(logger, traceId)(azureSvc)
+		dockerapiSvc = dockerapi.NewLogging(logger, traceId)(dockerapiSvc)
 
 		if debug {
 			b, _ := json.Marshal(cfg.Ldap)
@@ -149,6 +159,7 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		ldapSvc = ldapcli.NewTracing(tracer)(ldapSvc)
 		paasChatSvc = paaschat.NewTracing(tracer)(paasChatSvc)
 		azureSvc = azure.NewTracing(tracer)(azureSvc)
+		dockerapiSvc = dockerapi.NewTracing(tracer)(dockerapiSvc)
 	}
 
 	return &api{
@@ -158,5 +169,6 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		s3Client:    s3Cli,
 		paasChatSvc: paasChatSvc,
 		azure:       azureSvc,
+		dockerapi:   dockerapiSvc,
 	}
 }

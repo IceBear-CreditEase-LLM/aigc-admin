@@ -12,6 +12,19 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (t *tracing) SyncDeployStatus(ctx context.Context, modelId string) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "SyncDeployStatus", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.model",
+	})
+	defer func() {
+		span.LogKV("modelId", modelId)
+		span.SetTag("err", err != nil)
+		span.Finish()
+	}()
+	return t.next.SyncDeployStatus(ctx, modelId)
+}
+
 func (t *tracing) DeleteEval(ctx context.Context, id uint) (err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "DeleteEval", opentracing.Tag{
 		Key:   string(ext.Component),

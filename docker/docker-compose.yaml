@@ -25,7 +25,7 @@ services:
     volumes:
       - ./.cache/redis:/data
   aigc-admin:
-    image: aigc-admin:0.0.0-pre-test
+    image: icowan/aigc-admin:latest
     restart: always
     ports:
       - "8080:8080"
@@ -36,7 +36,7 @@ services:
       - aigc-admin
       - start
   aigc-admin-cronjob:
-    image: aigc-admin:0.0.0-pre-test
+    image: icowan/aigc-admin:latest
     restart: always
     command:
       - aigc-admin
@@ -45,3 +45,31 @@ services:
     depends_on:
       - mysql
       - redis
+  fschat-controller:
+    image: icowan/fschat:v0.2.35
+    restart: always
+    ports:
+      - "21001:21001"
+    command:
+      - python3
+      - -m
+      - fastchat.serve.controller
+      - --host
+      - 0.0.0.0
+      - --port
+      - 21001
+  fschat-api:
+    image: icowan/fschat:v0.2.35
+    restart: always
+    ports:
+      - "8000:8000"
+    command:
+      - python3
+      - -m
+      - fastchat.serve.openai_api_server
+      - --host
+      - 0.0.0.0
+      - --port
+      - 8000
+      - --controller-address
+      - http://fschat-controller:21001

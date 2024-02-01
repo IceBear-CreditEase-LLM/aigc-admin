@@ -30,13 +30,15 @@ import (
 type ASDContext string
 
 const (
-	ContextUserId            ASDContext = "ctx-user-id"          // 用户ID
-	ContextKeyUserEmail      ASDContext = "ctx-user-email"       // 用户邮箱
-	ContextKeyUseChannel     ASDContext = "ctx-use-channel"      // 使用渠道
-	ContextKeyTenantId       ASDContext = "ctx-tenant-id"        // 租户ID
-	ContextKeyPublicTenantId ASDContext = "ctx-public-tenant-id" // 租户ID
-	ContextKeyServiceIp      ASDContext = "ctx-service-ip"       // ContextKeyServiceIp 当前服务IP
-	ContextKeyServicePort    ASDContext = "ctx-service-port"     // ContextKeyServicePort 当前服务端口
+	ContextUserId               ASDContext = "ctx-user-id"          // 用户ID
+	ContextKeyUserEmail         ASDContext = "ctx-user-email"       // 用户邮箱
+	ContextKeyUseChannel        ASDContext = "ctx-use-channel"      // 使用渠道
+	ContextKeyTenantId          ASDContext = "ctx-tenant-id"        // 租户ID
+	ContextKeyPublicTenantId    ASDContext = "ctx-public-tenant-id" // 租户ID
+	ContextKeyServiceIp         ASDContext = "ctx-service-ip"       // ContextKeyServiceIp 当前服务IP
+	ContextKeyServicePort       ASDContext = "ctx-service-port"     // ContextKeyServicePort 当前服务端口
+	ContextKeyChannelId         ASDContext = "ctx-channel-id"
+	ContextKeyChannelModelsList ASDContext = "ctx-channel-models-list"
 )
 
 // CheckAuthMiddleware 验证用户登录信息，并将信息定入上下文

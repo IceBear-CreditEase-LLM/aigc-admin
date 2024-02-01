@@ -80,7 +80,7 @@ aigc-admin cronjob start -h`,
 )
 
 func cronStart(ctx context.Context, args []string) (err error) {
-	fineTuningSvc = finetuning.New(traceId, logger, store, serviceS3Bucket, serviceS3AccessKey, serviceS3SecretKey, apiSvc, rdb)
+	fineTuningSvc = finetuning.New(traceId, logger, store, serviceS3Bucket, serviceS3AccessKey, serviceS3SecretKey, apiSvc, rdb, aigcDataCfsPath)
 	fileSvc = files.NewService(logger, traceId, store, apiSvc, files.Config{
 		S3: struct {
 			AccessKey        string

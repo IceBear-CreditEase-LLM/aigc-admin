@@ -21,10 +21,25 @@ type Service interface {
 	DeleteChannel(ctx context.Context, id uint) (err error)
 	// AddChannelModels 批量添加渠道模型
 	AddChannelModels(ctx context.Context, channelId uint, models ...*types.Models) (err error)
+
+	// FindChannelById 根据id查询渠道
+	FindChannelById(ctx context.Context, id uint, preload ...string) (res types.ChatChannels, err error)
+
+	// RemoveChannelModels 去除Channel的模型
+	RemoveChannelModels(ctx context.Context, channelId uint, models ...types.Models) (err error)
 }
 
 type service struct {
 	db *gorm.DB
+}
+
+func (s *service) RemoveChannelModels(ctx context.Context, channelId uint, models ...types.Models) (err error) {
+	channelInfo, err := s.FindChannelById(ctx, channelId)
+	if err != nil {
+		return
+	}
+	err = s.db.WithContext(ctx).Model(&channelInfo).Association("ChannelModels").Unscoped().Delete(models)
+	return
 }
 
 func (s *service) AddChannelModels(ctx context.Context, channelId uint, models ...*types.Models) (err error) {

@@ -14,6 +14,30 @@ type logging struct {
 	traceId string
 }
 
+func (l *logging) CreateDeploy(ctx context.Context, modelDeploy *types.ModelDeploy) (err error) {
+	defer func() {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "CreateDeploy",
+			"modelDeploy", fmt.Sprintf("%+v", modelDeploy),
+			"err", err,
+		)
+	}()
+	return l.next.CreateDeploy(ctx, modelDeploy)
+}
+
+func (l *logging) DeleteDeploy(ctx context.Context, modelId uint) (err error) {
+	defer func() {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "DeleteDeploy",
+			"modelId", modelId,
+			"err", err,
+		)
+	}()
+	return l.next.DeleteDeploy(ctx, modelId)
+}
+
 func (l *logging) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(

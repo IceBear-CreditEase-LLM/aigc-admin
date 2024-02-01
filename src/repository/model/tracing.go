@@ -13,6 +13,32 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) CreateDeploy(ctx context.Context, modelDeploy *types.ModelDeploy) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateDeploy", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "repository.model",
+	})
+	defer func() {
+		span.LogKV("modelDeploy", fmt.Sprintf("%+v", modelDeploy), "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.CreateDeploy(ctx, modelDeploy)
+}
+
+func (s *tracing) DeleteDeploy(ctx context.Context, modelId uint) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "DeleteDeploy", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "repository.model",
+	})
+	defer func() {
+		span.LogKV("modelId", modelId, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.DeleteDeploy(ctx, modelId)
+}
+
 func (s *tracing) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "FindByModelId", opentracing.Tag{
 		Key:   string(ext.Component),

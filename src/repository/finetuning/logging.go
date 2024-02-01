@@ -14,6 +14,32 @@ type logging struct {
 	traceId string
 }
 
+func (l *logging) FindFineTunedModel(ctx context.Context, fineTunedModel string) (model types.FineTuningTrainJob, err error) {
+	defer func() {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "FindFineTunedModel",
+			"fineTunedModel", fineTunedModel,
+			"model", model,
+			"err", err,
+		)
+	}()
+	return l.next.FindFineTunedModel(ctx, fineTunedModel)
+}
+
+func (l *logging) FindChannelById(ctx context.Context, id uint, preload ...string) (res types.ChatChannels, err error) {
+	defer func() {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "FindChannelById",
+			"id", id,
+			"res", res,
+			"err", err,
+		)
+	}()
+	return l.next.FindChannelById(ctx, id, preload...)
+}
+
 func (l *logging) FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(

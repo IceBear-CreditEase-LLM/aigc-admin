@@ -1,10 +1,52 @@
 # AIGC 管理平台
 
+AIGC平台是一个综合了模型管理、模型部署、模型微调、渠道管理等功能的平台，通过该平台可以快速的部署模型、微调模型、管理模型、管理渠道等功能。
+
 ## 项目简介
 
 前端UI是一个独立的项目，点击[aigc-admin-web](https://github.com/IceBear-CreditEase-LLM/aigc-admin-web)查看
 
 ### 系统架构设计
+
+系统是前后端分离的架构。
+
+#### 模型推理框架
+
+我们使用的是[FastChat](https://github.com/lm-sys/FastChat)作为模型推理框架，FastChat是一个非常优秀的开源项目。
+
+> [FastChat](https://github.com/lm-sys/FastChat) 是一个开放平台，用于训练、服务和评估基于大型语言模型的聊天机器人。
+
+**FastChat我们主要用其三个服务**
+
+`controller` 用于模型的注册中心及健康检查
+
+`worker` 服务启动模型并将当前模型注册到controller
+
+`api` 从controller获取模型的地址代理到worker并提供标准API
+
+我们主要通过它来实现大模型的高可用，高可扩展性。
+
+![img.png](https://github.com/lm-sys/FastChat/raw/main/assets/server_arch.png)
+
+模型部署的操作可以参考[模型部署](docs/model/list.md)
+
+### 模型微调
+
+为了实现模型的微调，您可以参考我们的详细指南：[模型微调](docs/model/finetune.md)。
+
+### 模型部署与微调
+
+您可以将模型部署到任意配备GPU的节点上，无论是私有的K8s集群、Docker集群，还是云服务商提供的K8s集群，均能轻松对接。
+
+### 本系统组成
+
+本系统主要由以下几个部分组成：
+
+- **HTTP服务**：提供Web服务接口，方便用户进行交互。
+- **定时任务**：执行预定任务，如模型训练、数据预处理等。
+- **训练镜像**：包含所有必要的环境和依赖，用于模型的训练和微调。
+
+- 通过这些组件的协同工作，我们能够提供一个灵活、高效的模型微调和部署解决方案。
 
 #### 部署流程
 
@@ -18,11 +60,7 @@ graph LR
     F --> G[注册到fschat-controller]
 ```
 
-aigc -> 点击部署 -> 创建部署模版 -> 使用Docker或k8s进行调度 -> 挂载相应配置有模型 -> 启动模型 -> 注册到fschat-controller
-
 #### 微调训练流程
-
-aigc -> 上传微调文件 -> 生成微调模版 -> 使用Docker或k8s进行调度 -> 挂载相应配置有模型 -> 启动训练脚本 -> 输出日志
 
 ```mermaid
 graph LR
@@ -36,9 +74,7 @@ graph LR
 
 ## 使用手册
 
-[AIGC平台目录](docs/SUMMARY.md)
-
-[AIGC平台使用文档](docs/READMD.md)
+[AIGC平台使用手册](docs/SUMMARY.md)
 
 ### 安装使用步骤
 
@@ -237,11 +273,15 @@ Flags:
 | `AIGC_ADMIN_SERVER_LOG_NAME`            | `aigc-admin.log` | 日志文件名称   |
 | `AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY` | `sk-001`         | 默认渠道密钥   |
 
-### 模型部署
-
-### 模型微调
-
 ## Docker镜像
+
+我们提供了Docker镜像，您可以直接使用我们提供的镜像，也可以自行构建。
+
+- [LLMOps](docker/llmops-deepspeed/README.md)
+- [百川2](docker/baichuan2/README.md)
+- [FastChat](docker/fastchat/README.md)
+- [Qwen](docker/qwen/README.md)
+- [Vicuna](docker/vicuna/README.md)
 
 ### 文件资源目录
 

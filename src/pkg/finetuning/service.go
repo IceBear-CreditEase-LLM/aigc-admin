@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/alarm"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/dockerapi"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/finetuning"
@@ -69,6 +70,7 @@ type service struct {
 	bucketName  string
 	s3AccessKey string
 	s3SecretKey string
+	dataCfsPath string
 	mu          sync.Mutex
 	rdb         redis.UniversalClient
 }
@@ -260,6 +262,13 @@ func (s *service) _cancelJob(ctx context.Context, channelId uint, fineTuningJob 
 		_ = level.Error(logger).Log("repository.FineTuningJob", "FindFineTuningJobByJobId", "err", err.Error())
 		return
 	}
+
+	err = s.api.DockerApi().Remove(ctx, jobInfo.PaasJobName)
+	if err != nil {
+		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
+		err = errors.Wrap(err, "api.DockerApi.Remove")
+		return
+	}
 	// 调用paas强制删除job
 	//if err = s.api.Paas().DeleteJob(ctx, s.namespace, jobInfo.PaasJobName); err != nil {
 	//	_ = level.Error(logger).Log("api.Paas", "DeleteJob", "err", err.Error())
@@ -442,6 +451,7 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 	//namespaceName := s.namespace
 	serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
 	serviceName = strings.ReplaceAll(serviceName, ".", "-")
+
 	// 创建服务名
 	//if err = s.api.Paas().CreateService(ctx, namespaceName, serviceName); err != nil {
 	//	_ = level.Warn(logger).Log("api.Paas", "CreateService", "err", err.Error())
@@ -470,6 +480,36 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 	//}
 
 	var jobName string
+	jobName, err = s.api.DockerApi().Create(ctx, serviceName, dockerapi.Config{
+		Image: jobInfo.Template.TrainImage,
+		Command: []string{
+			"/bin/sh",
+			"-c",
+			"/app/train.sh",
+		},
+		CPU:    0,
+		Memory: 0,
+		Volumes: []dockerapi.Volume{
+			{
+				Key:   "./train.sh",
+				Value: "/app/",
+			}, {
+				Key:   s.dataCfsPath,
+				Value: "/data/ft-model",
+			}, {
+				Key:   s.dataCfsPath,
+				Value: "/data/base-model",
+			},
+		},
+		ConfigData: map[string]string{
+			"./train.sh": tplContent,
+		},
+	})
+	if err != nil {
+		err = errors.Wrap(err, "docker api create")
+		return
+	}
+
 	//if jobName, err = s.api.Paas().CreateJob(ctx, namespaceName, serviceName, jobInfo.Template.TrainImage, jobInfo.ProcPerNode, 0, 0, []string{
 	//	"/bin/sh",
 	//	"-c",
@@ -761,7 +801,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	return shareUrl, nil
 }
 
-func New(traceId string, logger log.Logger, store repository.Repository, bucketName, s3AccessKey, s3SecretKey string, apiSvc api.Service, rdb redis.UniversalClient) Service {
+func New(traceId string, logger log.Logger, store repository.Repository, bucketName, s3AccessKey, s3SecretKey string, apiSvc api.Service, rdb redis.UniversalClient, dataCfsPath string) Service {
 	return &service{
 		traceId:     traceId,
 		logger:      logger,
@@ -772,6 +812,7 @@ func New(traceId string, logger log.Logger, store repository.Repository, bucketN
 		namespace:   "aigc",
 		api:         apiSvc,
 		rdb:         rdb,
+		dataCfsPath: dataCfsPath,
 	}
 }
 

@@ -143,8 +143,8 @@ func start(ctx context.Context) (err error) {
 			ProjectName:      serviceS3ProjectName},
 	})
 	channelSvc = channels.NewService(logger, traceId, store, apiSvc)
-	modelSvc = models.NewService(logger, traceId, store, apiSvc)
-	fineTuningSvc = finetuning.New(traceId, logger, store, serviceS3Bucket, serviceS3AccessKey, serviceS3SecretKey, apiSvc, rdb)
+	modelSvc = models.NewService(logger, traceId, store, apiSvc, aigcDataCfsPath)
+	fineTuningSvc = finetuning.New(traceId, logger, store, serviceS3Bucket, serviceS3AccessKey, serviceS3SecretKey, apiSvc, rdb, aigcDataCfsPath)
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)
 	datasetSvc = datasets.New(logger, traceId, store)
 	toolsSvc = tools.New(logger, traceId, store)
@@ -235,6 +235,7 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 			ctx = context.WithValue(ctx, kithttp.ContextKeyRequestAuthorization, token)
 			ctx = context.WithValue(ctx, logging.TraceId, guid)
 			ctx = context.WithValue(ctx, middleware.ContextKeyPublicTenantId, tenantId)
+			ctx = context.WithValue(ctx, middleware.ContextKeyChannelId, channelId)
 			return ctx
 		}),
 	}

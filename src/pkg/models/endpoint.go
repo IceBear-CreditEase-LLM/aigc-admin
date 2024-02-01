@@ -117,7 +117,8 @@ type (
 		Quantization string `json:"quantization"`
 		Vllm         bool   `json:"vllm"`
 		// 指定每个 GPU 用于存储模型权重的最大内存。这允许它为激活分配更多内存，因此您可以使用更长的上下文长度或更大的批量大小。
-		MaxGpuMemory int `json:"maxGpuMemory"`
+		MaxGpuMemory int  `json:"maxGpuMemory"`
+		ChannelId    uint `json:"channelId"`
 	}
 )
 
@@ -225,7 +226,14 @@ func makeGetModelEndpoint(s Service) endpoint.Endpoint {
 
 func makeDeployModelEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+
+		channelId, ok := ctx.Value(middleware.ContextKeyChannelId).(int)
+		if !ok {
+			return nil, encode.ErrChatChannelNotFound.Error()
+		}
+
 		req := request.(ModelDeployRequest)
+		req.ChannelId = uint(channelId)
 		err = s.Deploy(ctx, req)
 		resp := struct{}{}
 		return encode.Response{

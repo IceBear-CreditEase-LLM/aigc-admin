@@ -20,6 +20,7 @@ type ChatChannels struct {
 	TenantId      uint     `gorm:"column:tenant_id;type:bigint(20) unsigned;NOT NULL"` // 租户ID
 	ChannelModels []Models `gorm:"many2many:channel_model_associations;foreignKey:id;joinForeignKey:channel_id;References:id;joinReferences:model_id"`
 	ModelId       []uint   `gorm:"-" json:"modelId"`
+	Tenant        Tenants  `gorm:"foreignKey:TenantId;references:ID"`
 }
 
 func (*ChatChannels) TableName() string {

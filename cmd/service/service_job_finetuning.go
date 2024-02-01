@@ -30,7 +30,7 @@ aigc-admin job -h
 			if err = prepare(cmd.Context()); err != nil {
 				return errors.Wrap(err, "prepare")
 			}
-			fineTuningSvc = finetuning.New(traceId, logger, store, serviceS3Bucket, serviceS3AccessKey, serviceS3SecretKey, apiSvc, rdb)
+			fineTuningSvc = finetuning.New(traceId, logger, store, serviceS3Bucket, serviceS3AccessKey, serviceS3SecretKey, apiSvc, rdb, aigcDataCfsPath)
 			return nil
 		},
 	}
@@ -85,7 +85,13 @@ func fineTuningRunningJobLog(ctx context.Context, jobs []types.FineTuningTrainJo
 		//	_ = level.Warn(logger).Log("msg", "get job pods log failed", "err", err.Error())
 		//	continue
 		//}
-		jobLog := ""
+		var jobLog string
+		jobLog, err = apiSvc.DockerApi().Logs(ctx, job.PaasJobName)
+		if err != nil {
+			_ = level.Warn(logger).Log("msg", "get job pods log failed", "err", err.Error())
+			continue
+		}
+
 		lineArr := strings.Split(jobLog, "\n")
 		re := regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (\{.*?\})`)
 
