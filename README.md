@@ -1,121 +1,66 @@
 # AIGC 管理平台
-
 AIGC平台是一个综合了模型管理、模型部署、模型微调、渠道管理等功能的平台，通过该平台可以快速的部署模型、微调模型、管理模型、管理渠道等功能。
-
 ## 项目简介
-
 前端UI是一个独立的项目，点击[aigc-admin-web](https://github.com/IceBear-CreditEase-LLM/aigc-admin-web)查看
-
 ### 系统架构设计
-
 系统是前后端分离的架构。
-
 #### 模型推理框架
-
 我们使用的是[FastChat](https://github.com/lm-sys/FastChat)作为模型推理框架，FastChat是一个非常优秀的开源项目。
-
 > [FastChat](https://github.com/lm-sys/FastChat) 是一个开放平台，用于训练、服务和评估基于大型语言模型的聊天机器人。
 
 **FastChat我们主要用其三个服务**
-
 `controller` 用于模型的注册中心及健康检查
-
 `worker` 服务启动模型并将当前模型注册到controller
-
 `api` 从controller获取模型的地址代理到worker并提供标准API
-
 我们主要通过它来实现大模型的高可用，高可扩展性。
-
-![img.png](https://github.com/lm-sys/FastChat/raw/main/assets/server_arch.png)
-
+![](https://github.com/lm-sys/FastChat/raw/main/assets/server_arch.png#id=nE5kA&originHeight=1246&originWidth=3400&originalType=binary&ratio=1&rotation=0&showTitle=false&status=done&style=none&title=)
 模型部署的操作可以参考[模型部署](docs/model/list.md)
-
 ### 模型微调
-
 为了实现模型的微调，您可以参考我们的详细指南：[模型微调](docs/model/finetune.md)。
-
 ### 模型部署与微调
-
 您可以将模型部署到任意配备GPU的节点上，无论是私有的K8s集群、Docker集群，还是云服务商提供的K8s集群，均能轻松对接。
-
 ### 本系统组成
-
 本系统主要由以下几个部分组成：
 
-- **HTTP服务**：提供Web服务接口，方便用户进行交互。
-- **定时任务**：执行预定任务，如模型训练、数据预处理等。
-- **训练镜像**：包含所有必要的环境和依赖，用于模型的训练和微调。
-
-- 通过这些组件的协同工作，我们能够提供一个灵活、高效的模型微调和部署解决方案。
-
+-  **HTTP服务**：提供Web服务接口，方便用户进行交互。 
+-  **定时任务**：执行预定任务，如模型训练、数据预处理等。 
+-  **训练镜像**：包含所有必要的环境和依赖，用于模型的训练和微调。 
+-  通过这些组件的协同工作，我们能够提供一个灵活、高效的模型微调和部署解决方案。 
 #### 部署流程
-
-```mermaid
-graph LR
-    A[aigc] --> B[点击部署]
-    B --> C[创建部署模版]
-    C --> D[使用Docker或k8s进行调度]
-    D --> E[挂载相应配置有模型]
-    E --> F[启动模型]
-    F --> G[注册到fschat-controller]
-```
-
-#### 微调训练流程
-
-```mermaid
-graph LR
-    A[aigc] --> B[上传微调文件]
-    B --> C[生成微调模版]
-    C --> D[使用Docker或k8s进行调度]
-    D --> E[挂载相应配置有模型]
-    E --> F[启动训练脚本]
-    F --> G[输出日志]
-```
-
-## 使用手册
-
+![](https://cdn.nlark.com/yuque/__mermaid_v3/66042bf4ea18395b93b32e7e4e05d468.svg#lake_card_v2=eyJ0eXBlIjoibWVybWFpZCIsImNvZGUiOiJncmFwaCBMUlxuICAgIEFbYWlnY10gLS0-IEJb54K55Ye76YOo572yXVxuICAgIEIgLS0-IENb5Yib5bu66YOo572y5qih54mIXVxuICAgIEMgLS0-IERb5L2_55SoRG9ja2Vy5oiWazhz6L-b6KGM6LCD5bqmXVxuICAgIEQgLS0-IEVb5oyC6L2955u45bqU6YWN572u5pyJ5qih5Z6LXVxuICAgIEUgLS0-IEZb5ZCv5Yqo5qih5Z6LXVxuICAgIEYgLS0-IEdb5rOo5YaM5YiwZnNjaGF0LWNvbnRyb2xsZXJdIiwidXJsIjoiaHR0cHM6Ly9jZG4ubmxhcmsuY29tL3l1cXVlL19fbWVybWFpZF92My82NjA0MmJmNGVhMTgzOTViOTNiMzJlN2U0ZTA1ZDQ2OC5zdmciLCJpZCI6IjdmMjM1ZjhkIiwiY2FyZCI6ImRpYWdyYW0ifQ==)#### 微调训练流程
+![](https://cdn.nlark.com/yuque/__mermaid_v3/971ad6170df3a1e22bd62df05addb806.svg#lake_card_v2=eyJ0eXBlIjoibWVybWFpZCIsImNvZGUiOiJncmFwaCBMUlxuICAgIEFbYWlnY10gLS0-IEJb5LiK5Lyg5b6u6LCD5paH5Lu2XVxuICAgIEIgLS0-IENb55Sf5oiQ5b6u6LCD5qih54mIXVxuICAgIEMgLS0-IERb5L2_55SoRG9ja2Vy5oiWazhz6L-b6KGM6LCD5bqmXVxuICAgIEQgLS0-IEVb5oyC6L2955u45bqU6YWN572u5pyJ5qih5Z6LXVxuICAgIEUgLS0-IEZb5ZCv5Yqo6K6t57uD6ISa5pysXVxuICAgIEYgLS0-IEdb6L6T5Ye65pel5b-XXSIsInVybCI6Imh0dHBzOi8vY2RuLm5sYXJrLmNvbS95dXF1ZS9fX21lcm1haWRfdjMvOTcxYWQ2MTcwZGYzYTFlMjJiZDYyZGYwNWFkZGI4MDYuc3ZnIiwiaWQiOiJlZTA1OGQ5OSIsImNhcmQiOiJkaWFncmFtIn0=)## 使用手册
 [AIGC平台使用手册](docs/SUMMARY.md)
-
 ### 安装使用步骤
 
 - 克隆项目: `git clone https://github.com/IceBear-CreditEase-LLM/aigc-admin.git`
 - 进入项目: `cd aigc-admin`
 
 该系统依赖**Mysql**、**Redis**和**Docker**需要安装此服务
-
 推理或训练节点只需要安装**Docker**和**Nvidia-Docker**
 即可。[NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit)
-
 #### 本地开发
-
 [golang](https://github.com/golang/go)版本请安装go1.21以上版本
 
 - 本地启动: `make run`
+
+![28d1b74166bd5321c94e7b857bbfd4f.png](https://cdn.nlark.com/yuque/0/2024/png/40838792/1706932449233-023f6ee5-3aca-41ab-88d9-5050692f046f.png#averageHue=%23232120&clientId=u8bb75010-fb89-4&from=paste&height=433&id=u5095f2dd&originHeight=483&originWidth=1004&originalType=binary&ratio=1.1145833730697632&rotation=0&showTitle=false&size=64435&status=done&style=none&taskId=u21bc35b2-35e3-469b-a667-15d86733d85&title=&width=900.7850146147464)
+
 - build成x86 Linux可执行文件: `make build-linux`
 - build成当前电脑可执行文件: `make build`
 
+![512995fafc130f0d3c6b1f4a0c67f2e.png](https://cdn.nlark.com/yuque/0/2024/png/40838792/1706932462356-6fff01cf-96c0-4865-a3a7-b26c6e9706f4.png#averageHue=%232a2724&clientId=u8bb75010-fb89-4&from=paste&height=377&id=u0436b04e&originHeight=420&originWidth=1004&originalType=binary&ratio=1.1145833730697632&rotation=0&showTitle=false&size=61987&status=done&style=none&taskId=u6d1992e3-3085-4cd8-b67a-dff80564366&title=&width=900.7850146147464)
 build完通常会保存在 `$(GOPATH)/bin/` 目录下
-
 #### Docker部署
-
 安装docker和docker-compose可以参考官网教程：[Install Docker Engine](https://docs.docker.com/engine/install/)
-
 执行命令启动全部服务
-
 ```
 $ docker-compose up
 ```
-
 ### 项目配置
-
 项目配置可以通过两种方式进行配置
-
 #### 通过命令先传参
-
 **需要注意的是，如果即设置了环境变量也设置了命令行参数，那么命令行参数的值会覆盖环境变量的值**
-
 执行: `./aigc-admin start --help` 查看命令行参数
-
 ```bash
 # Aigc Admin服务
 有关本系统的相关概述，请参阅 http://github.com/IceBear-CreditEase-LLM/aigc-admin
@@ -181,100 +126,87 @@ Flags:
       --service.s3.region string          S3 Bucket (default "default")
       --service.s3.secret.key string      S3 SecretKey
 ```
-
 #### 系统公共环境变量配置
-
 可以修改`.env`调整相关配置
-
 ##### 数据库配置
-
-| 环境变量                  | 值           | 描述               |
-|-----------------------|-------------|------------------|
-| `AIGC_DB_DRIVER`      | `mysql`     | 数据库驱动类型（可能是遗留错误） |
-| `AIGC_MYSQL_DRIVE`    | `mysql`     | 数据库驱动类型          |
-| `AIGC_MYSQL_HOST`     | `localhost` | 数据库主机地址          |
-| `AIGC_MYSQL_PORT`     | `3306`      | 数据库端口号           |
-| `AIGC_MYSQL_USER`     | `aigc`      | 数据库用户名           |
-| `AIGC_MYSQL_PASSWORD` | `admin`     | 数据库密码            |
-| `AIGC_MYSQL_DATABASE` | `aigc`      | 数据库名             |
+| 环境变量 | 值 | 描述 |
+| --- | --- | --- |
+| `AIGC_DB_DRIVER` | `mysql` | 数据库驱动类型（可能是遗留错误） |
+| `AIGC_MYSQL_DRIVE` | `mysql` | 数据库驱动类型 |
+| `AIGC_MYSQL_HOST` | `localhost` | 数据库主机地址 |
+| `AIGC_MYSQL_PORT` | `3306` | 数据库端口号 |
+| `AIGC_MYSQL_USER` | `aigc` | 数据库用户名 |
+| `AIGC_MYSQL_PASSWORD` | `admin` | 数据库密码 |
+| `AIGC_MYSQL_DATABASE` | `aigc` | 数据库名 |
 
 ##### Redis 配置
-
-| 环境变量                  | 值            | 描述                   |
-|-----------------------|--------------|----------------------|
-| `AIGC_REDIS_HOSTS`    | `redis:6379` | Redis 服务地址和端口        |
-| `AIGC_REDIS_PREFIX`   | `aigc`       | Redis 前缀，用于区分不同的数据集合 |
-| `AIGC_REDIS_PASSWORD` |              | Redis 访问密码           |
+| 环境变量 | 值 | 描述 |
+| --- | --- | --- |
+| `AIGC_REDIS_HOSTS` | `redis:6379` | Redis 服务地址和端口 |
+| `AIGC_REDIS_PREFIX` | `aigc` | Redis 前缀，用于区分不同的数据集合 |
+| `AIGC_REDIS_PASSWORD` |  | Redis 访问密码 |
 
 ##### Tracer 链路追踪配置
-
-| 环境变量                           | 值        | 描述          |
-|--------------------------------|----------|-------------|
-| `AIGC_TRACER_ENABLE`           | `false`  | 是否启用链路追踪    |
-| `AIGC_TRACER_DRIVE`            | `jaeger` | 链路追踪驱动类型    |
-| `AIGC_TRACER_JAEGER_HOST`      |          | Jaeger 服务地址 |
-| `AIGC_TRACER_JAEGER_PARAM`     | `1`      | Jaeger 采样参数 |
-| `AIGC_TRACER_JAEGER_TYPE`      | `const`  | Jaeger 采样类型 |
-| `AIGC_TRACER_JAEGER_LOG_SPANS` | `false`  | 是否记录追踪日志    |
+| 环境变量 | 值 | 描述 |
+| --- | --- | --- |
+| `AIGC_TRACER_ENABLE` | `false` | 是否启用链路追踪 |
+| `AIGC_TRACER_DRIVE` | `jaeger` | 链路追踪驱动类型 |
+| `AIGC_TRACER_JAEGER_HOST` |  | Jaeger 服务地址 |
+| `AIGC_TRACER_JAEGER_PARAM` | `1` | Jaeger 采样参数 |
+| `AIGC_TRACER_JAEGER_TYPE` | `const` | Jaeger 采样类型 |
+| `AIGC_TRACER_JAEGER_LOG_SPANS` | `false` | 是否记录追踪日志 |
 
 ##### 跨域配置
-
-| 环境变量               | 值       | 描述               |
-|--------------------|---------|------------------|
+| 环境变量 | 值 | 描述 |
+| --- | --- | --- |
 | `AIGC_ENABLE_CORS` | `false` | 是否启用CORS（跨源资源共享） |
 
 ##### 外部服务调用配置
-
-| 环境变量                         | 值        | 描述          |
-|------------------------------|----------|-------------|
-| `AIGC_SERVICE_ALARM_HOST`    |          | 报警服务地址      |
-| `AIGC_SERVICE_CHAT_API_HOST` |          | 聊天API服务地址   |
-| `AIGC_SERVICE_OPENAI_TOKEN`  | `sk-***` | API Key     |
-| `AIGC_SERVICE_OPENAI_ORG_ID` |          | OpenAI 组织ID |
+| 环境变量 | 值 | 描述 |
+| --- | --- | --- |
+| `AIGC_SERVICE_ALARM_HOST` |  | 报警服务地址 |
+| `AIGC_SERVICE_CHAT_API_HOST` |  | 聊天API服务地址 |
+| `AIGC_SERVICE_OPENAI_TOKEN` | `sk-***` | API Key |
+| `AIGC_SERVICE_OPENAI_ORG_ID` |  | OpenAI 组织ID |
 
 ##### S3 存储配置
-
-| 环境变量                            | 值 | 描述         |
-|---------------------------------|---|------------|
-| `AIGC_SERVICE_S3_HOST`          |   | S3 服务地址    |
-| `AIGC_SERVICE_S3_ACCESS_KEY`    |   | S3 访问密钥    |
-| `AIGC_SERVICE_S3_SECRET_KEY`    |   | S3 访问密钥密码  |
-| `AIGC_SERVICE_S3_BUCKET`        |   | S3 存储桶名称   |
-| `AIGC_SERVICE_S3_BUCKET_PUBLIC` |   | S3 公共存储桶名称 |
-| `AIGC_SERVICE_S3_PROJECT_NAME`  |   | S3 项目名称    |
+| 环境变量 | 值 | 描述 |
+| --- | --- | --- |
+| `AIGC_SERVICE_S3_HOST` |  | S3 服务地址 |
+| `AIGC_SERVICE_S3_ACCESS_KEY` |  | S3 访问密钥 |
+| `AIGC_SERVICE_S3_SECRET_KEY` |  | S3 访问密钥密码 |
+| `AIGC_SERVICE_S3_BUCKET` |  | S3 存储桶名称 |
+| `AIGC_SERVICE_S3_BUCKET_PUBLIC` |  | S3 公共存储桶名称 |
+| `AIGC_SERVICE_S3_PROJECT_NAME` |  | S3 项目名称 |
 
 ##### 聊天API配置
-
-| 环境变量                      | 值                      | 描述       |
-|---------------------------|------------------------|----------|
-| `AIGC_SERVICE_CHAT_HOST`  | `http://chat-api:8080` | 聊天服务地址   |
-| `AIGC_SERVICE_CHAT_TOKEN` | `sk-001`               | 聊天服务访问令牌 |
+| 环境变量 | 值 | 描述 |
+| --- | --- | --- |
+| `AIGC_SERVICE_CHAT_HOST` | `http://chat-api:8080` | 聊天服务地址 |
+| `AIGC_SERVICE_CHAT_TOKEN` | `sk-001` | 聊天服务访问令牌 |
 
 ##### LDAP 配置
-
-| 环境变量                  | 值                    | 描述          |
-|-----------------------|----------------------|-------------|
-| `AIGC_LDAP_HOST`      | `ldap`               | LDAP 服务器地址  |
-| `AIGC_LDAP_BASE_DN`   | `OU=HABROOT,DC=corp` | LDAP 基础DN   |
-| `AIGC_LDAP_BIND_USER` |                      | LDAP 绑定用户   |
-| `AIGC_LDAP_BIND_PASS` |                      | LDAP 绑定用户密码 |
-| `AIGC_LDAP_USER_ATTR` | `mail,displayName`   | LDAP 用户属性   |
+| 环境变量 | 值 | 描述 |
+| --- | --- | --- |
+| `AIGC_LDAP_HOST` | `ldap` | LDAP 服务器地址 |
+| `AIGC_LDAP_BASE_DN` | `OU=HABROOT,DC=corp` | LDAP 基础DN |
+| `AIGC_LDAP_BIND_USER` |  | LDAP 绑定用户 |
+| `AIGC_LDAP_BIND_PASS` |  | LDAP 绑定用户密码 |
+| `AIGC_LDAP_USER_ATTR` | `mail,displayName` | LDAP 用户属性 |
 
 ##### aigc-admin 环境变量配置
-
-| 环境变量                                    | 值                | 描述       |
-|-----------------------------------------|------------------|----------|
-| `AIGC_ADMIN_SERVER_HTTP_PORT`           | `:8080`          | 服务HTTP端口 |
-| `AIGC_ADMIN_SERVER_LOG_DRIVE`           | `term`           | 日志驱动类型   |
-| `AIGC_ADMIN_SERVER_NAME`                | `aigc-admin`     | 服务名称     |
-| `AIGC_ADMIN_SERVER_DEBUG`               | `true`           | 是否开启调试模式 |
-| `AIGC_ADMIN_SERVER_LOG_LEVEL`           | `all`            | 日志级别     |
-| `AIGC_ADMIN_SERVER_LOG_PATH`            |                  | 日志路径     |
-| `AIGC_ADMIN_SERVER_LOG_NAME`            | `aigc-admin.log` | 日志文件名称   |
-| `AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY` | `sk-001`         | 默认渠道密钥   |
+| 环境变量 | 值 | 描述 |
+| --- | --- | --- |
+| `AIGC_ADMIN_SERVER_HTTP_PORT` | `:8080` | 服务HTTP端口 |
+| `AIGC_ADMIN_SERVER_LOG_DRIVE` | `term` | 日志驱动类型 |
+| `AIGC_ADMIN_SERVER_NAME` | `aigc-admin` | 服务名称 |
+| `AIGC_ADMIN_SERVER_DEBUG` | `true` | 是否开启调试模式 |
+| `AIGC_ADMIN_SERVER_LOG_LEVEL` | `all` | 日志级别 |
+| `AIGC_ADMIN_SERVER_LOG_PATH` |  | 日志路径 |
+| `AIGC_ADMIN_SERVER_LOG_NAME` | `aigc-admin.log` | 日志文件名称 |
+| `AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY` | `sk-001` | 默认渠道密钥 |
 
 ## Docker镜像
-
 我们提供了Docker镜像，您可以直接使用我们提供的镜像，也可以自行构建。
 
 - [LLMOps](docker/llmops-deepspeed/README.md)
@@ -282,9 +214,7 @@ Flags:
 - [FastChat](docker/fastchat/README.md)
 - [Qwen](docker/qwen/README.md)
 - [Vicuna](docker/vicuna/README.md)
-
 ### 文件资源目录
-
 ```
 .
 ├── CHANGELOG                   # 变更日志
@@ -320,3 +250,48 @@ Flags:
 │ └── util                      # 工具模块
 └── tests                       # 测试模块
 ```
+
+## 常见问题
+### 1 开发者环境
+1.1 Q:  cmd/service/service.go:164:30: undefined: xxx？
+A: 确保你已经正确导入了openai相关的包。可以使用go get命令来获取或更新外部库。
+
+
+
+1.2 Q：
+
+```
+go: github.com/redis/go-redis/v8@upgrade (v8.11.5) requires github.com/redis/go-redis/v8@v8.11.5: parsing go.mod:
+        module declares its path as: github.com/go-redis/redis/v8
+                but was required as: github.com/redis/go-redis/v8
+```
+A：检查go.mod和go.sum中的redis是否统一，如果不是请使用go get更新依赖。
+
+- 运行`go mod tidy`来清理`go.mod`文件中的依赖，确保所有依赖项都是正确和最新的。
+- 运行`go mod verify`来验证当前项目的依赖是否全部正确。
+
+
+
+1.3 Q：rootCmd.Execute dial tcp: lookup redis on 100.100.2.138:53: no such host exit status 255
+A：更新/etc/hosts文件，插入`127.0.0.1   redis`
+
+
+
+1.4 Q：
+
+```
+transport=HTTP httpListener.Close=http err="listen tcp :8080: bind: address already in use"
+ts="2024-02-03 00:45:50" level=info caller=logging.go:25 api=Api api.alarm=logging traceId=null method=Push title=服务停止 content="msg: 服务它停了,是不是挂了..., err: listen tcp :8080: bind: address already in use" metrics=service_start level=info silencePeriod=1 took=1.295µs err=null
+ts="2024-02-03 00:45:50" level=debug caller=service_start.go:309 db=close err=null
+ts="2024-02-03 00:45:50" level=debug caller=service_start.go:311 rdb=close err="redis: client is closed"
+exit status 1
+make: *** [run] Error 1
+```
+A： 端口号被占用，在make run文件中修改端口号。
+### 2 build环境
+2.1 Q：执行构建错误 # command-line-arguments: ***: undefined
+A：需要将makefile中的build命令改为./cmd/*.go
+
+### 3 docker
+3.1 Q： image错误
+![cfec8376cfae60540002607e344dea5.png](https://cdn.nlark.com/yuque/0/2024/png/40838792/1706932634875-77c09a50-76df-4163-9402-ef40598375f1.png#averageHue=%23262320&clientId=u8bb75010-fb89-4&from=paste&height=74&id=uc8a32c32&originHeight=82&originWidth=928&originalType=binary&ratio=1.1145833730697632&rotation=0&showTitle=false&size=10014&status=done&style=none&taskId=u363c8612-f0a8-4a66-9ebf-dc28bbd9af5&title=&width=832.5981011578533)

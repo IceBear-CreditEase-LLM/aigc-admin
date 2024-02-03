@@ -10,6 +10,8 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/ldapcli"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/paaschat"
+	"github.com/go-redis/redis/v8"
+	"github.com/sashabaranov/go-openai"
 	"net"
 	"net/http"
 	"net/url"
@@ -124,11 +126,11 @@ const (
 	DefaultMysqlHost     = "localhost"
 	DefaultMysqlPort     = 3306
 	DefaultMysqlUser     = "root"
-	DefaultMysqlPassword = ""
+	DefaultMysqlPassword = "Czj991020!"
 	DefaultMysqlDatabase = "aigc"
 	DefaultRedisHosts    = "redis:6379"
 	DefaultRedisDb       = 0
-	DefaultRedisPassword = ""
+	DefaultRedisPassword = "123456"
 	DefaultRedisPrefix   = "aigc"
 
 	DefaultServerName      = "aigc-admin"

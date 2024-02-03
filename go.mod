@@ -10,7 +10,7 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/go-ldap/ldap/v3 v3.4.5
 	github.com/go-playground/validator/v10 v10.14.1
-	github.com/go-redis/redis/v8 v8.11.5
+    github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.4.0
 	github.com/gorilla/mux v1.8.0
