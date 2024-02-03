@@ -10,8 +10,6 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/ldapcli"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/paaschat"
-	"github.com/go-redis/redis/v8"
-	"github.com/sashabaranov/go-openai"
 	"net"
 	"net/http"
 	"net/url"
@@ -78,7 +76,7 @@ const (
 	EnvNameServiceOpenAiToken    = "AIGC_SERVICE_OPENAI_TOKEN"
 	EnvNameServiceOpenAiModel    = "AIGC_SERVICE_OPENAI_MODEL"
 	EnvNameServiceOpenAiOrgId    = "AIGC_SERVICE_OPENAI_ORG_ID"
-	EnvNameServiceS3Host         = "AIGC_SERVICE_S3_HOST" // S3对象存储相当
+	EnvNameServiceS3Host         = "AIGC_SERVICE_S3_HOST"       // S3对象存储相当
 	EnvNameServiceS3AccessKey    = "AIGC_SERVICE_S3_ACCESS_KEY"
 	EnvNameServiceS3SecretKey    = "AIGC_SERVICE_S3_SECRET_KEY"
 	EnvNameServiceS3S3Url        = "AIGC_SERVICE_S3_S3URL"
@@ -88,8 +86,8 @@ const (
 	EnvNameServiceS3DownloadUrl  = "AIGC_SERVICE_S3_DOWNLOAD_URL"
 	EnvNameServiceS3ProjectName  = "AIGC_SERVICE_S3_PROJECT_NAME"
 	EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
-	EnvNameServiceChatHost       = "AIGC_SERVICE_CHAT_HOST"  // chat-api 相关
-	EnvNameServiceChatToken      = "AIGC_SERVICE_CHAT_TOKEN" // chat-api 相关
+	EnvNameServiceChatHost       = "AIGC_SERVICE_CHAT_HOST"     // chat-api 相关
+	EnvNameServiceChatToken      = "AIGC_SERVICE_CHAT_TOKEN"    // chat-api 相关
 	// [docker]
 	EnvNameDockerChatDataCfsPath = "AIGC_Docker_CHAT_DATA_CFS_PATH" // chat-api 相关
 	EnvNameDockerWorkspace       = "AIGC_Docker_WORKSPACE"          // chat-api 相关
@@ -125,7 +123,7 @@ const (
 	DefaultDbDrive       = "mysql"
 	DefaultMysqlHost     = "localhost"
 	DefaultMysqlPort     = 3306
-	DefaultMysqlUser     = "aigc"
+	DefaultMysqlUser     = "root"
 	DefaultMysqlPassword = ""
 	DefaultMysqlDatabase = "aigc"
 	DefaultRedisHosts    = "redis:6379"

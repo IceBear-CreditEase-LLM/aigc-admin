@@ -16,13 +16,15 @@ ifneq (,$(wildcard ./.env))
 endif
 
 build-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o $(BINARY_UNIX) $(GO_LDFLAGS) ./cmd/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o $(BINARY_UNIX) $(GO_LDFLAGS) ./cmd/*.go
+	#CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o ./build $(GO_LDFLAGS) ./cmd/*.go
 
 build:
-	GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o $(BINARY_UNIX) $(GO_LDFLAGS) ./cmd/main.go
+	#GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o $(BINARY_UNIX) $(GO_LDFLAGS) ./cmd/main.go
+	GO111MODULE=on GOPROXY=$(GOPROXY) go build -v -o ./build $(GO_LDFLAGS) ./cmd/main.go
 
 run:
-	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start -p :8080 -a $(APPNAME) -n local
+	GOPROXY=$(GOPROXY) GO111MODULE=on go run ./cmd/main.go start -p :8090 -a $(APPNAME) -n local
 
 generate:
 	GOPROXY=$(GOPROXY) GO111MODULE=on $(GORUN) ./cmd/main.go generate table all
