@@ -102,8 +102,8 @@ func decodeCreateFileRequest(ctx context.Context, r *http.Request) (interface{},
 
 	req := FileRequest{
 		Purpose:    purpose,
-		header:     header,
-		file:       file,
+		Header:     header,
+		File:       file,
 		FileType:   strings.TrimLeft(filepath.Ext(header.Filename), "."), // 去掉文件后缀的点
 		LineCount:  line,
 		TokenCount: tokens,

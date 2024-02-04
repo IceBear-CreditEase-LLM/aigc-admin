@@ -1,10 +1,3 @@
-/**
- * @Time : 2021/11/4 10:59 AM
- * @Author : solacowa@gmail.com
- * @File : service
- * @Software: GoLand
- */
-
 package alarm
 
 import (

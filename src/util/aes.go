@@ -1,10 +1,3 @@
-/**
- * @Time : 2020/11/12 3:07 PM
- * @Author : solacowa@gmail.com
- * @File : aes
- * @Software: GoLand
- */
-
 package util
 
 import (

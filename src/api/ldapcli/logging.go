@@ -1,10 +1,3 @@
-/**
- * @Time : 2023/6/30 15:43
- * @Author : solacowa@gmail.com
- * @File : logging
- * @Software: GoLand
- */
-
 package ldapcli
 
 import (

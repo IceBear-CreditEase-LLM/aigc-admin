@@ -1,10 +1,3 @@
-/**
- * @Time: 2020/12/27 12:19
- * @Author: solacowa@gmail.com
- * @File: service_tracer
- * @Software: GoLand
- */
-
 package service
 
 import (

@@ -1,10 +1,3 @@
-/**
- * @Time: 2020/12/27 22:06
- * @Author: solacowa@gmail.com
- * @File: api
- * @Software: GoLand
- */
-
 package api
 
 import (

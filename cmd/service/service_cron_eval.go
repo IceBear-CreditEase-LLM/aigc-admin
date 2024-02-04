@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
@@ -17,20 +17,16 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 type llmWaitingEvalCronJob struct {
-	logger      log.Logger
-	Name        string
-	ctx         context.Context
-	store       repository.Repository
-	apiSvc      api.Service
-	running     bool
-	bucketName  string
-	s3AccessKey string
-	s3SecretKey string
-	project     string
+	logger   log.Logger
+	Name     string
+	ctx      context.Context
+	store    repository.Repository
+	apiSvc   api.Service
+	running  bool
+	filesSvc files.Service
 }
 
 type messageLine struct {
@@ -112,25 +108,6 @@ func (s *llmWaitingEvalCronJob) Run() {
 		}
 		return
 	}
-}
-
-func (s *llmWaitingEvalCronJob) uploadToS3(ctx context.Context, fileName string, body []byte) (panUrl string, err2 error) {
-	// 上传到s3
-	paths := strings.Split(time.Now().Format(time.RFC3339), "-")
-	targetPath := fmt.Sprintf("aigc/llm-eval-data/%s/%s/%s.json", paths[0], paths[1], fileName)
-	err2 = s.apiSvc.S3Client(ctx).Upload(ctx, s.bucketName, targetPath, util.NewFile(body), "")
-	if err2 != nil {
-		_ = level.Warn(s.logger).Log("msg", "upload to s3 failed", "err", err2)
-		return "", err2
-	}
-
-	//gen, err2 := s.apiSvc.Pan().ShareGen(ctx, s.s3AccessKey, s.s3SecretKey, s.project, "", s.bucketName, targetPath, "aigc-llm-eval", 60*60*24*365, true)
-	//if err2 != nil {
-	//	_ = level.Warn(logger).Log("msg", "share gen failed", "err", err2)
-	//	return "", err2
-	//}
-
-	return "", nil
 }
 
 func (s *llmWaitingEvalCronJob) completionMetricEqual(ctx context.Context, httpUrl string, evalTask types.LLMEvalResults) (err error) {
@@ -220,10 +197,10 @@ func (s *llmWaitingEvalCronJob) completionMetricEqual(ctx context.Context, httpU
 	}
 	// 将失败的传到s3或者其他地方
 	if len(notEqualLines) > 0 {
-		if panUrl, uploadErr := s.uploadToS3(ctx, fmt.Sprintf("llm_eval_%d_%s.jsonl", evalTask.ID, evalTask.ModelName), notEqualLines); uploadErr == nil {
-			_ = level.Info(logger).Log("msg", "upload to s3 success", "panUrl", panUrl)
+		if fileUrl, uploadErr := s.filesSvc.UploadLocal(ctx, util.NewFile(body), "json"); uploadErr == nil {
+			_ = level.Info(logger).Log("msg", "upload to s3 success", "panUrl", fileUrl)
 			detail := map[string]interface{}{
-				"evalResultNotEqualUrl": fmt.Sprintf("%s.jsonl", panUrl),
+				"evalResultNotEqualUrl": fileUrl,
 			}
 			b, _ := json.Marshal(detail)
 			if evalErr := s.store.LLMEval().UpdateEvalDetail(ctx, evalTask.ID, string(b)); evalErr != nil {

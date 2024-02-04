@@ -1,10 +1,3 @@
-/**
- * @Time : 2020/7/17 4:13 PM
- * @Author : solacowa@gmail.com
- * @File : jwt
- * @Software: GoLand
- */
-
 package jwt
 
 import (

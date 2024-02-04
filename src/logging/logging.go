@@ -1,10 +1,3 @@
-/**
- * @Time : 2019-09-12 09:42
- * @Author : solacowa@gmail.com
- * @File : logging
- * @Software: GoLand
- */
-
 package logging
 
 import (

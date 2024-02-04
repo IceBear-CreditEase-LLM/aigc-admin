@@ -85,6 +85,7 @@ const (
 	FiledTypeString  = "string"
 	FiledTypeFloat64 = "float64"
 	FiledTypeInt     = "int"
+	FiledTypeBool    = "bool"
 )
 
 func UploadFile(url string, filePaths []FileItem, params []ParamItem, headers []HeaderItem) (res *http.Response, err error) {
@@ -111,6 +112,8 @@ func UploadFile(url string, filePaths []FileItem, params []ParamItem, headers []
 				field.Write([]byte(fmt.Sprintf("%f", v.FiledValue.(float64))))
 			case FiledTypeInt:
 				field.Write([]byte(fmt.Sprintf("%d", v.FiledValue.(int))))
+			case FiledTypeBool:
+				field.Write([]byte(fmt.Sprintf("%t", v.FiledValue.(bool))))
 			default:
 				field.Write([]byte(v.FiledValue.(string)))
 			}
@@ -189,6 +192,27 @@ func FormatBytes(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f%cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// WriteFile 文件临时存储
+func WriteFile(file multipart.File, handler *multipart.FileHeader, fileDir string) (filePath, fileName string, err error) {
+	// 创建新文件并将内容写入其中
+	filePath, fileName = GetFilePath(handler.Filename, fileDir)
+	err = MakeFilePath(filePath)
+	if err != nil {
+		return "", "", err
+	}
+	filePathName := filePath + fileName
+
+	newFile, err := os.Create(filePathName)
+	if err != nil {
+		return "", "", err
+	}
+	defer newFile.Close()
+
+	io.Copy(newFile, file)
+
+	return filePathName, fileName, nil
 }
 
 // File 实现 multipart.File 接口所需的方法

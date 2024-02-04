@@ -1,10 +1,3 @@
-/**
- * @Time : 2021/11/26 10:24 AM
- * @Author : solacowa@gmail.com
- * @File : service_job
- * @Software: GoLand
- */
-
 package service
 
 import (

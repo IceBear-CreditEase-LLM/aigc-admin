@@ -83,13 +83,13 @@ graph LR
 
 该系统依赖**Mysql**、**Redis**和**Docker**需要安装此服务
 
-推理或训练节点只需要安装**Docker**和**Nvidia-Docker**
-即可。[NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit)
+推理或训练节点只需要安装**Docker**和**Nvidia-Docker**即可。[NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit)
 
 #### 本地开发
 
 [golang](https://github.com/golang/go)版本请安装go1.21以上版本
 
+- 安装依赖包: `go mod tidy`
 - 本地启动: `make run`
 - build成x86 Linux可执行文件: `make build-linux`
 - build成当前电脑可执行文件: `make build`
@@ -108,13 +108,13 @@ $ docker-compose up
 
 ### 项目配置
 
-项目配置可以通过两种方式进行配置
+项目配置可以通过命令行传参或环境变量两种方式进行配置
 
-#### 通过命令先传参
+#### 通过命令行传参
 
 **需要注意的是，如果即设置了环境变量也设置了命令行参数，那么命令行参数的值会覆盖环境变量的值**
 
-执行: `./aigc-admin start --help` 查看命令行参数
+执行: `./aigc-admin --help` 查看命令行参数
 
 ```bash
 # Aigc Admin服务

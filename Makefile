@@ -1,5 +1,5 @@
 APPNAME = aigc-admin
-BIN = $(GOPATH)/bin
+BIN = $(if $(GOPATH),$(GOPATH)/bin,./)
 GOCMD = go
 GOBUILD = $(GOCMD) build
 GORUN = $(GOCMD) run

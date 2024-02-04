@@ -9,6 +9,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/alarm"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/dockerapi"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/finetuning"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
@@ -67,12 +68,10 @@ type service struct {
 	store       repository.Repository
 	api         api.Service
 	namespace   string
-	bucketName  string
-	s3AccessKey string
-	s3SecretKey string
 	dataCfsPath string
 	mu          sync.Mutex
 	rdb         redis.UniversalClient
+	fileSvc     files.Service
 }
 
 func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trainingFileId, baseModel, suffix, validationFile string, epochs int) (res jobResult, err error) {
@@ -487,8 +486,7 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 			"-c",
 			"/app/train.sh",
 		},
-		CPU:    0,
-		Memory: 0,
+		GPU: jobInfo.ProcPerNode,
 		Volumes: []dockerapi.Volume{
 			{
 				Key:   "./train.sh",
@@ -785,20 +783,13 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	// 将 *bytes.Reader 类型强制转换为 multipart.File 类型
 	file := NewFile(alpacaDada) // 将 []byte 转换为 multipart.File
 
-	paths := strings.Split(time.Now().Format(time.RFC3339), "-")
-	targetPath := fmt.Sprintf("aigc/train-data/%s/%s/%s.json", paths[0], paths[1], util.Krand(12, util.KC_RAND_KIND_ALL))
-	err = s.api.S3Client(ctx).Upload(ctx, s.bucketName, targetPath, file, "")
+	fileUrl, err := s.fileSvc.UploadLocal(ctx, file, "json")
 	if err != nil {
-		_ = level.Error(logger).Log("s3Client", "Upload", "err", err.Error())
-		return
-	}
-	shareUrl, err := s.api.S3Client(ctx).ShareGen(ctx, s.bucketName, targetPath, 60*24*31*12)
-	if err != nil {
-		_ = level.Error(logger).Log("pan", "ShareGen", "err", err.Error())
+		_ = level.Error(logger).Log("fileSvc", "UploadLocal", "err", err.Error())
 		return
 	}
 
-	return shareUrl, nil
+	return fileUrl, nil
 }
 
 func New(traceId string, logger log.Logger, store repository.Repository, bucketName, s3AccessKey, s3SecretKey string, apiSvc api.Service, rdb redis.UniversalClient, dataCfsPath string) Service {
@@ -806,9 +797,6 @@ func New(traceId string, logger log.Logger, store repository.Repository, bucketN
 		traceId:     traceId,
 		logger:      logger,
 		store:       store,
-		bucketName:  bucketName,
-		s3AccessKey: s3AccessKey,
-		s3SecretKey: s3SecretKey,
 		namespace:   "aigc",
 		api:         apiSvc,
 		rdb:         rdb,

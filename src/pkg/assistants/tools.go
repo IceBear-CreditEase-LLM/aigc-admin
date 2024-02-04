@@ -187,11 +187,12 @@ func (s dynamicTool) httpSend(ctx context.Context, input string) (res string, er
 
 	if strings.TrimSpace(input) != "" && strings.TrimSpace(input) != "None" && strings.TrimSpace(input) != "{}" {
 		data = map[string]interface{}{}
+		_ = level.Info(s.logger).Log("msg", fmt.Sprintf("解析输入: %s", input))
 		// 解码JSON到map
 		err = json.Unmarshal([]byte(input), &data)
 		if err != nil {
 			err = errors.Wrap(err, fmt.Sprintf("解析输入失败: %s", input))
-			return "", err
+			//return "", err
 		}
 	}
 

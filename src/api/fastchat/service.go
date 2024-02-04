@@ -1,10 +1,3 @@
-/**
- * @Time : 2023/5/11 3:39 PM
- * @Author : solacowa@gmail.com
- * @File : service
- * @Software: GoLand
- */
-
 package fastchat
 
 import (

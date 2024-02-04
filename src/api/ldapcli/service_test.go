@@ -1,10 +1,3 @@
-/**
- * @Time : 2022/1/13 4:15 PM
- * @Author : solacowa@gmail.com
- * @File : service_test
- * @Software: GoLand
- */
-
 package ldapcli
 
 import (

@@ -3,6 +3,7 @@ package files
 import (
 	"context"
 	"crypto/md5"
+	"embed"
 	"encoding/hex"
 	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
@@ -12,8 +13,11 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"io"
 	"mime/multipart"
+	"os"
+	"path"
 	"strings"
 	"time"
 )
@@ -23,14 +27,19 @@ type Service interface {
 	ListFiles(ctx context.Context, request ListFileRequest) (files FileList, err error)
 	GetFile(ctx context.Context, fileId string) (file File, err error)
 	DeleteFile(ctx context.Context, fileId string) (err error)
+	// UploadToS3 上传文件到s3存储
 	UploadToS3(ctx context.Context, file multipart.File, fileType string, isPublicBucket bool) (s3Url string, err error)
+	// UploadLocal 上传文件到本地存储
+	UploadLocal(ctx context.Context, file multipart.File, fileType string) (localFile string, err error)
 }
 
 type service struct {
-	logger  log.Logger
-	traceId string
-	store   repository.Repository
-	apiSvc  api.Service
+	logger                   log.Logger
+	traceId                  string
+	store                    repository.Repository
+	apiSvc                   api.Service
+	localDataPath, serverUrl string
+	localDataFS              embed.FS
 	Config
 }
 
@@ -59,18 +68,47 @@ func (s *service) UploadToS3(ctx context.Context, file multipart.File, fileType 
 	return shareUrl, nil
 }
 
+// UploadLocal 将文件上传到本地目录
+func (s *service) UploadLocal(ctx context.Context, file multipart.File, fileType string) (localFile string, err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "service", "UploadLocal")
+	paths := strings.Split(time.Now().Format(time.RFC3339), "-")
+	id, _ := util.GenShortId(24)
+	fileName := fmt.Sprintf("%s.%s", id, fileType)
+	targetPath := path.Join(s.localDataPath, fileType, paths[0], paths[1], fileName)
+	if err = os.MkdirAll(path.Join(s.localDataPath, fileType, paths[0], paths[1]), os.ModePerm); err != nil {
+		return "", errors.Wrap(err, "os.MkdirAll")
+	}
+
+	// 创建一个本地文件，用于保存上传的文件
+	dst, err := os.Create(targetPath)
+	if err != nil {
+		_ = level.Error(logger).Log("os", "Create", "err", err.Error())
+		return
+	}
+	defer func(dst *os.File) {
+		_ = dst.Close()
+	}(dst)
+
+	// 将上传的文件复制到本地文件
+	if _, err = io.Copy(dst, file); err != nil {
+		_ = level.Error(logger).Log("io", "Copy", "err", err.Error())
+		return
+	}
+	return fmt.Sprintf("%s/%s", s.serverUrl, path.Join(fileType, paths[0], paths[1], fileName)), nil
+}
+
 func (s *service) CreateFile(ctx context.Context, request FileRequest) (file File, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "CreateFile")
 
-	defer request.file.Close()
+	defer request.File.Close()
 	// 计算文件md5
 	hash := md5.New()
-	if _, err = io.Copy(hash, request.file); err != nil {
+	if _, err = io.Copy(hash, request.File); err != nil {
 		_ = level.Error(logger).Log("io.Copy", "err", err.Error())
 		return file, err
 	}
 	md5Str := hex.EncodeToString(hash.Sum(nil))
-	if _, err = request.file.Seek(0, io.SeekStart); err != nil {
+	if _, err = request.File.Seek(0, io.SeekStart); err != nil {
 		_ = level.Error(logger).Log("request.file.Seek", "err", err.Error())
 		return file, err
 	}
@@ -96,16 +134,20 @@ func (s *service) CreateFile(ctx context.Context, request FileRequest) (file Fil
 	//if err != nil {
 	//	return file, err
 	//}
-	// 文件上传到本地
-
+	// 文件保存到本地
+	fileUrl, err := s.UploadLocal(ctx, request.File, request.FileType)
+	if err != nil {
+		_ = level.Error(logger).Log("uploadLocal", err.Error())
+		return
+	}
 	// 保存文件信息到数据库
 	data := &types.Files{
 		FileID:     uuid.New().String(),
-		Name:       request.header.Filename,
-		Size:       request.header.Size,
+		Name:       request.Header.Filename,
+		Size:       request.Header.Size,
 		Type:       request.FileType,
 		Md5:        md5Str,
-		S3Url:      "",
+		S3Url:      fileUrl,
 		Purpose:    request.Purpose,
 		TenantID:   request.TenantId,
 		LineCount:  request.LineCount,
@@ -184,22 +226,29 @@ func (s *service) DeleteFile(ctx context.Context, fileId string) (err error) {
 	return nil
 }
 
+type s3Config struct {
+	AccessKey        string
+	SecretKey        string
+	BucketName       string //默认私有桶配置
+	BucketNamePublic string //公有桶配置
+	ProjectName      string
+}
+
 type Config struct {
-	S3 struct {
-		AccessKey        string
-		SecretKey        string
-		BucketName       string //默认私有桶配置
-		BucketNamePublic string //公有桶配置
-		ProjectName      string
-	}
+	S3            s3Config
+	LocalDataPath string
+	ServerUrl     string
 }
 
 func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc api.Service, cfg Config) Service {
+	_ = log.With(logger, "pkg.files", "service")
 	return &service{
-		logger:  logger,
-		traceId: traceId,
-		store:   store,
-		Config:  cfg,
-		apiSvc:  apiSvc,
+		logger:        logger,
+		traceId:       traceId,
+		store:         store,
+		Config:        cfg,
+		apiSvc:        apiSvc,
+		localDataPath: cfg.LocalDataPath,
+		serverUrl:     cfg.ServerUrl,
 	}
 }

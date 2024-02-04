@@ -192,6 +192,7 @@ func (s *service) Playground(ctx context.Context, tenantId uint, assistantId str
 				),
 			),
 		),
+		//agents.WithMemory(memory.NewConversationTokenBuffer(llm, 2000)),
 		agents.WithMaxIterations(3),
 		agents.WithParserErrorHandler(agents.NewParserErrorHandler(func(s string) string {
 			// 这里可以发告警出来

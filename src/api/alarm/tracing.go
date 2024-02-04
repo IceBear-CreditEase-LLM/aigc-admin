@@ -1,10 +1,3 @@
-/**
- * @Time : 2021/11/4 11:11 AM
- * @Author : solacowa@gmail.com
- * @File : tracing
- * @Software: GoLand
- */
-
 package alarm
 
 import (

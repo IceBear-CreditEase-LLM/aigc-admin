@@ -1,10 +1,3 @@
-/**
- * @Time : 8/4/21 2:04 PM
- * @Author : solacowa@gmail.com
- * @File : files
- * @Software: GoLand
- */
-
 package util
 
 import (
@@ -287,4 +280,42 @@ func GetFileTypeName(file *os.File) (res string, err error) {
 		err = errors.Wrap(err, "")
 	}
 	return fileTypeName, nil
+}
+
+func Base64ToMultipartFileAndHeader(base64Data string, outFileName string, fileType string) (multipart.File, *multipart.FileHeader, error) {
+	// 解码 Base64 数据
+	imageBytes, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// 创建临时文件
+	tempFile, err := os.CreateTemp("", "base64-")
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func(tempFile *os.File) {
+		_ = tempFile.Close()
+	}(tempFile)
+
+	// 将数据写入临时文件
+	if _, err := tempFile.Write(imageBytes); err != nil {
+		return nil, nil, err
+	}
+
+	// 打开临时文件并返回 *os.File 类型
+	multipartFile, err := os.Open(tempFile.Name())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	fileHeader := &multipart.FileHeader{ //构造一个head
+		Filename: outFileName, //"out.png"
+		Size:     int64(len(imageBytes)),
+		Header: map[string][]string{
+			"Content-Type": {fileType}, // 假设图片是PNG格式 "image/png"
+		},
+	}
+
+	return multipartFile, fileHeader, nil
 }

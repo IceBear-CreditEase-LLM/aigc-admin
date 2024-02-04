@@ -1,10 +1,3 @@
-/**
- * @Time : 24/04/2020 11:49 AM
- * @Author : solacowa@gmail.com
- * @File : service_gen_table
- * @Software: GoLand
- */
-
 package service
 
 import (

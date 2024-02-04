@@ -1,10 +1,3 @@
-/**
- * @Time: 2020/4/28 10:07
- * @Author: solacowa@gmail.com
- * @File: limitter
- * @Software: GoLand
- */
-
 package middleware
 
 import (

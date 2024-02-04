@@ -1,10 +1,3 @@
-/**
- * @Time : 2023/5/16 10:38
- * @Author : solacowa@gmail.com
- * @File : tracing
- * @Software: GoLand
- */
-
 package chat
 
 import (

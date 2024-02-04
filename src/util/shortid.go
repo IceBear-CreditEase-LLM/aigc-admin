@@ -1,10 +1,3 @@
-/**
- * @Time : 2020/11/16 6:37 PM
- * @Author : solacowa@gmail.com
- * @File : shortid
- * @Software: GoLand
- */
-
 package util
 
 import (

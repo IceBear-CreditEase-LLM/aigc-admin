@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -41,7 +42,7 @@ import (
 const (
 	DefaultHttpPort   = ":8080"
 	DefaultConfigPath = "/usr/local/aigc-admin/etc/app.cfg"
-	DefaultWebPath    = "/usr/local/aigc-admin/web"
+	DefaultWebPath    = "web"
 
 	// [DB相关]
 	EnvNameDbDrive       = "AIGC_DB_DRIVE"
@@ -91,8 +92,8 @@ const (
 	EnvNameServiceChatHost       = "AIGC_SERVICE_CHAT_HOST"  // chat-api 相关
 	EnvNameServiceChatToken      = "AIGC_SERVICE_CHAT_TOKEN" // chat-api 相关
 	// [docker]
-	EnvNameDockerChatDataCfsPath = "AIGC_Docker_CHAT_DATA_CFS_PATH" // chat-api 相关
-	EnvNameDockerWorkspace       = "AIGC_Docker_WORKSPACE"          // chat-api 相关
+	EnvNameDockerChatDataCfsPath = "AIGC_DOCKER_CHAT_DATA_CFS_PATH" // docker 存储的位置
+	EnvNameDockerWorkspace       = "AIGC_DOCKER_WORKSPACE"          // docker 工作目录
 
 	// [LDAP 相关]
 	EnvNameLdapHost        = "AIGC_LDAP_HOST"
@@ -118,6 +119,8 @@ const (
 	EnvNameServerAdminUser         = "AIGC_ADMIN_SERVER_ADMIN_USER"
 	EnvNameServerAdminPass         = "AIGC_ADMIN_SERVER_ADMIN_PASS"
 	EnvNameServerDefaultChannelKey = "AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY"
+	EnvNameServerStoragePath       = "AIGC_ADMIN_SERVER_STORAGE_PATH"
+	EnvNameServerDomain            = "AIGC_ADMIN_SERVER_DOMAIN"
 
 	// [cronjob]
 	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
@@ -214,17 +217,18 @@ var (
 	rdb    redis.UniversalClient
 	apiSvc api.Service
 	//hashId   hashids.HashIds
-	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                        string
-	mysqlPort, redisDb, ormPort                                                                        int
-	redisAuth, redisHosts, redisPrefix                                                                 string
-	serverName, serverKey, serverLogLevel, serverLogDrive, serverLogPath, serverLogName                string
-	serverAdminUser, serverAdminPass                                                                   string
-	corsAllowOrigins, corsAllowMethods, corsAllowHeaders, corsExposeHeaders                            string
-	serverDebug, enableCORS, corsAllowCredentials, tracerEnable, tracerJaegerLogSpans, mysqlOrmMetrics bool
-	tracerDrive, tracerJaegerHost, tracerJaegerType                                                    string
-	tracerJaegerParam                                                                                  float64
-	serviceAlarmHost                                                                                   string
-	serverChannelKey                                                                                   string
+	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                            string
+	mysqlPort, redisDb, ormPort                                                                            int
+	redisAuth, redisHosts, redisPrefix                                                                     string
+	serverName, serverKey, serverLogLevel, serverLogDrive, serverLogPath, serverLogName, serverStoragePath string
+	defaultStoragePath, serverDomain                                                                       string
+	serverAdminUser, serverAdminPass                                                                       string
+	corsAllowOrigins, corsAllowMethods, corsAllowHeaders, corsExposeHeaders                                string
+	serverDebug, enableCORS, corsAllowCredentials, tracerEnable, tracerJaegerLogSpans, mysqlOrmMetrics     bool
+	tracerDrive, tracerJaegerHost, tracerJaegerType                                                        string
+	tracerJaegerParam                                                                                      float64
+	serviceAlarmHost                                                                                       string
+	serverChannelKey                                                                                       string
 
 	// [gpt]
 	serviceOpenAiEnable                                                           bool
@@ -232,7 +236,7 @@ var (
 	serviceOpenAiHost, serviceOpenAiToken, serviceOpenAiModel, serviceOpenAiOrgId string
 
 	// [s3]
-	serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3BucketPublic, serviceS3Region, serviceS3Cluster, serviceS3ProjectName string
+	serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3BucketPublic, serviceS3Region, serviceS3ProjectName string
 
 	// [ldap]相关
 	ldapHost, ldapBaseDn, ldapBindUser, ldapBindPass, ldapUserFilter, ldapGroupFilter string
@@ -273,8 +277,13 @@ GoVersion: ` + goVersion + `
 Platform: ` + goOS + "/" + goArch + `
 `)
 
+	pwd, _ := os.Getwd()
+
+	defaultStoragePath = path.Join(pwd, "storage")
+
 	startCmd.PersistentFlags().StringVarP(&httpAddr, "http.port", "p", DefaultHttpPort, "服务启动的http端口")
 	startCmd.PersistentFlags().BoolVar(&webEmbed, "web.embed", true, "是否使用embed.FS")
+	startCmd.PersistentFlags().StringVar(&serverDomain, "server.domain", fmt.Sprintf("http://localhost%s", httpAddr), "启动服务的域名")
 	// [cors]
 	startCmd.PersistentFlags().BoolVar(&enableCORS, "cors.enable", DefaultEnableCORS, "是否开启跨域访问")
 	startCmd.PersistentFlags().StringVar(&corsAllowOrigins, "cors.allow.origins", DefaultCORSAllowOrigins, "允许跨域访问的域名")
@@ -314,6 +323,7 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().BoolVar(&serverDebug, "server.debug", DefaultServerDebug, "是否开启Debug模式")
 	rootCmd.PersistentFlags().StringVar(&serverAdminUser, "server.admin.user", DefaultServerAdminUser, "系统管理员账号")
 	rootCmd.PersistentFlags().StringVar(&serverAdminPass, "server.admin.pass", DefaultServerAdminPass, "系统管理员密码")
+	rootCmd.PersistentFlags().StringVar(&serverStoragePath, "server.storage.path", defaultStoragePath, "文件存储绝对路金")
 	// [service]
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config.path", "c", "", "配置文件路径，如果没有传入配置文件路径则默认使用环境变量")
 	rootCmd.PersistentFlags().StringVar(&serviceAlarmHost, "service.alarm.token", DefaultServiceAlarmHost, "告警中心服务地址")
@@ -335,10 +345,10 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&serviceS3AccessKey, "service.s3.access.key", DefaultServiceS3AccessKey, "S3 AccessKey")
 	rootCmd.PersistentFlags().StringVar(&serviceS3SecretKey, "service.s3.secret.key", DefaultServiceS3SecretKey, "S3 SecretKey")
 	rootCmd.PersistentFlags().StringVar(&serviceS3Bucket, "service.s3.bucket", DefaultServiceS3Bucket, "S3 Bucket")
-	rootCmd.PersistentFlags().StringVar(&serviceS3BucketPublic, "service.s3.bucket.public", DefaultServiceS3BucketPublic, "S3 Bucket Public")
+	//rootCmd.PersistentFlags().StringVar(&serviceS3BucketPublic, "service.s3.bucket.public", DefaultServiceS3BucketPublic, "S3 Bucket Public")
 	rootCmd.PersistentFlags().StringVar(&serviceS3Region, "service.s3.region", DefaultServiceS3Region, "S3 Bucket")
-	rootCmd.PersistentFlags().StringVar(&serviceS3Cluster, "service.s3.cluster", DefaultServiceS3Cluster, "S3 集群")
-	rootCmd.PersistentFlags().StringVar(&serviceS3ProjectName, "service.s3.project.name", namespace, "S3 项目名称")
+	//rootCmd.PersistentFlags().StringVar(&serviceS3Cluster, "service.s3.cluster", DefaultServiceS3Cluster, "S3 集群")
+	//rootCmd.PersistentFlags().StringVar(&serviceS3ProjectName, "service.s3.project.name", namespace, "S3 项目名称")
 
 	// [ldap]
 	rootCmd.PersistentFlags().StringVar(&ldapHost, "ldap.host", DefaultLdapHost, "LDAP地址")
@@ -581,6 +591,9 @@ func Run() {
 	serverDebug, _ = strconv.ParseBool(envString(EnvNameServerDebug, strconv.FormatBool(DefaultServerDebug)))
 	serverAdminUser = envString(EnvNameServerAdminUser, DefaultServerAdminUser)
 	serverAdminUser = envString(EnvNameServerAdminPass, DefaultServerAdminPass)
+	serverStoragePath = envString(EnvNameServerStoragePath, defaultStoragePath)
+	serverDomain = envString(EnvNameServerDomain, fmt.Sprintf("http://localhost%s", httpAddr))
+	cronJobAuto, _ = strconv.ParseBool(envString(AigcEnvNameCronJobAuto, "true"))
 
 	// 以下是[service] 模块配置
 	serviceAlarmHost = envString(EnvNameServiceAlarmHost, DefaultServiceAlarmHost)
@@ -608,10 +621,9 @@ func Run() {
 	serviceS3AccessKey = envString(EnvNameServiceS3AccessKey, DefaultServiceS3AccessKey)
 	serviceS3SecretKey = envString(EnvNameServiceS3SecretKey, DefaultServiceS3SecretKey)
 	serviceS3Bucket = envString(EnvNameServiceS3Bucket, DefaultServiceS3Bucket)
-	serviceS3BucketPublic = envString(EnvNameServiceS3BucketPublic, DefaultServiceS3BucketPublic)
+	//serviceS3BucketPublic = envString(EnvNameServiceS3BucketPublic, DefaultServiceS3BucketPublic)
 	serviceS3Region = envString(EnvNameServiceS3Region, DefaultServiceS3Region)
-	serviceS3Cluster = envString(EnvNameServiceS3Cluster, DefaultServiceS3Cluster)
-	serviceS3ProjectName = envString(EnvNameServiceS3ProjectName, namespace)
+	//serviceS3ProjectName = envString(EnvNameServiceS3ProjectName, namespace)
 	// [service.chat]
 	serviceChatHost = envString(EnvNameServiceChatHost, defaultServiceChatHost)
 	serviceChatToken = envString(EnvNameServiceChatToken, DefaultServiceChatToken)

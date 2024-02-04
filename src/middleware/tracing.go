@@ -1,10 +1,3 @@
-/**
- * @Time: 2020/12/28 23:23
- * @Author: solacowa@gmail.com
- * @File: tracing
- * @Software: GoLand
- */
-
 package middleware
 
 import (

@@ -1,10 +1,3 @@
-/**
- * @Time : 2023/5/12 14:48
- * @Author : solacowa@gmail.com
- * @File : tracing
- * @Software: GoLand
- */
-
 package fastchat
 
 import (

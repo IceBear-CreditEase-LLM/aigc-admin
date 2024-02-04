@@ -1,10 +1,3 @@
-/**
- * @Time: 2020/10/16 22:00
- * @Author: solacowa@gmail.com
- * @File: krand
- * @Software: GoLand
- */
-
 package util
 
 import (

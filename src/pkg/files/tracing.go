@@ -12,8 +12,21 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
-func (t tracing) UploadToS3(ctx context.Context, file multipart.File, fileType string, isPublicBucket bool) (s3Url string, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "", opentracing.Tag{
+func (s *tracing) UploadLocal(ctx context.Context, file multipart.File, fileType string) (localFile string, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "UploadLocal", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.files",
+	})
+	defer func() {
+		span.LogKV("file", file, "fileType", fileType, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.UploadLocal(ctx, file, fileType)
+}
+
+func (s *tracing) UploadToS3(ctx context.Context, file multipart.File, fileType string, isPublicBucket bool) (s3Url string, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "pkg.files",
 	})
@@ -22,11 +35,11 @@ func (t tracing) UploadToS3(ctx context.Context, file multipart.File, fileType s
 		span.SetTag(string(ext.Error), err != nil)
 		span.Finish()
 	}()
-	return t.next.UploadToS3(ctx, file, fileType, isPublicBucket)
+	return s.next.UploadToS3(ctx, file, fileType, isPublicBucket)
 }
 
-func (t tracing) CreateFile(ctx context.Context, request FileRequest) (file File, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "CreateFile", opentracing.Tag{
+func (s *tracing) CreateFile(ctx context.Context, request FileRequest) (file File, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateFile", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "pkg.files",
 	})
@@ -35,11 +48,11 @@ func (t tracing) CreateFile(ctx context.Context, request FileRequest) (file File
 		span.SetTag("err", err != nil)
 		span.Finish()
 	}()
-	return t.next.CreateFile(ctx, request)
+	return s.next.CreateFile(ctx, request)
 }
 
-func (t tracing) ListFiles(ctx context.Context, request ListFileRequest) (files FileList, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "ListFiles", opentracing.Tag{
+func (s *tracing) ListFiles(ctx context.Context, request ListFileRequest) (files FileList, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "ListFiles", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "pkg.files",
 	})
@@ -48,11 +61,11 @@ func (t tracing) ListFiles(ctx context.Context, request ListFileRequest) (files 
 		span.SetTag("err", err != nil)
 		span.Finish()
 	}()
-	return t.next.ListFiles(ctx, request)
+	return s.next.ListFiles(ctx, request)
 }
 
-func (t tracing) GetFile(ctx context.Context, fileId string) (file File, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "GetFile", opentracing.Tag{
+func (s *tracing) GetFile(ctx context.Context, fileId string) (file File, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetFile", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "pkg.files",
 	})
@@ -61,11 +74,11 @@ func (t tracing) GetFile(ctx context.Context, fileId string) (file File, err err
 		span.SetTag("err", err != nil)
 		span.Finish()
 	}()
-	return t.next.GetFile(ctx, fileId)
+	return s.next.GetFile(ctx, fileId)
 }
 
-func (t tracing) DeleteFile(ctx context.Context, fileId string) (err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, t.tracer, "DeleteFile", opentracing.Tag{
+func (s *tracing) DeleteFile(ctx context.Context, fileId string) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "DeleteFile", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "pkg.files",
 	})
@@ -74,7 +87,7 @@ func (t tracing) DeleteFile(ctx context.Context, fileId string) (err error) {
 		span.SetTag("err", err != nil)
 		span.Finish()
 	}()
-	return t.next.DeleteFile(ctx, fileId)
+	return s.next.DeleteFile(ctx, fileId)
 }
 
 func NewTracing(otTracer opentracing.Tracer) Middleware {

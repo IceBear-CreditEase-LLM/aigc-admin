@@ -25,11 +25,12 @@ type (
 	FileRequest struct {
 		TenantId   uint   `json:"tenantId"`
 		Purpose    string `json:"purpose"`
-		header     *multipart.FileHeader
-		file       multipart.File
+		Header     *multipart.FileHeader
+		File       multipart.File
 		FileType   string `json:"fileType"`
 		LineCount  int    `json:"lineCount"`
 		TokenCount int    `json:"tokenCount"`
+		IsPublic   bool   `json:"isPublic"`
 	}
 
 	FileList struct {

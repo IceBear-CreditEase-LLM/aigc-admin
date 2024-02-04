@@ -1,10 +1,3 @@
-/**
- * @Time : 2023/5/16 10:37
- * @Author : solacowa@gmail.com
- * @File : logging
- * @Software: GoLand
- */
-
 package chat
 
 import (

@@ -1,10 +1,3 @@
-/**
- * @Time : 2020/7/16 2:17 PM
- * @Author : solacowa@gmail.com
- * @File : asd
- * @Software: GoLand
- */
-
 package middleware
 
 import (
@@ -142,15 +135,11 @@ func regexMatch(key1 string, key2 string) bool {
 
 var uriArray = []string{
 	"/api/auth/login",
-	"/api/voice/compare",
-	"/voice/compare",
 }
 
 var tenantUriArray = []string{
 	"/api/auth/login",
-	"/api/voice/compare",
 	"/api/auth/account",
-	"/voice/compare",
 }
 
 func uriWhitelist(uri string, uriArray []string) bool {

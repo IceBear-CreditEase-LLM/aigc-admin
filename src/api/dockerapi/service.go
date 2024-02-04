@@ -2,6 +2,7 @@ package dockerapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -108,7 +109,7 @@ func (s *service) Create(ctx context.Context, name string, config Config) (id st
 		Binds: hostBinds,
 	}
 	var dr []container.DeviceRequest
-	if config.GPU > 0 {
+	if config.GPU != 0 {
 		dr = append(dr, container.DeviceRequest{
 			Driver:       "nvidia",
 			Count:        config.GPU,
@@ -116,6 +117,14 @@ func (s *service) Create(ctx context.Context, name string, config Config) (id st
 		})
 	}
 	hcf.Resources.DeviceRequests = dr
+
+	b, _ := json.Marshal(config)
+	b1, _ := json.Marshal(ccf)
+	b2, _ := json.Marshal(hcf)
+	fmt.Println(string(b))
+	fmt.Println(string(b1))
+	fmt.Println(string(b2))
+	fmt.Println(name)
 
 	resp, err := s.getCli(ctx).ContainerCreate(ctx, ccf, hcf, nil, nil, name)
 	if err != nil {

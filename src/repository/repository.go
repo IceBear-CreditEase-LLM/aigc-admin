@@ -1,10 +1,3 @@
-/**
- * @Time : 2023/7/7 13:28
- * @Author : solacowa@gmail.com
- * @File : repository
- * @Software: GoLand
- */
-
 package repository
 
 import (

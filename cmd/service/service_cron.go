@@ -136,15 +136,11 @@ func cronStart(ctx context.Context, args []string) (err error) {
 			_ = level.Info(logger).Log("msg", "add cron job success", "entryID", entryID, "name", "deployment.status")
 		case "llmeval.run-pending":
 			entryID, err := crontab.AddJob("0 0/2 * * * *", &llmWaitingEvalCronJob{
-				logger:      log.With(logger, "cron", "llmeval.run-pending"),
-				Name:        "llmeval.run-pending",
-				ctx:         ctx,
-				store:       store,
-				apiSvc:      apiSvc,
-				bucketName:  serviceS3Bucket,
-				s3AccessKey: serviceS3AccessKey,
-				s3SecretKey: serviceS3SecretKey,
-				project:     "aigc",
+				logger: log.With(logger, "cron", "llmeval.run-pending"),
+				Name:   "llmeval.run-pending",
+				ctx:    ctx,
+				store:  store,
+				apiSvc: apiSvc,
 			})
 			if err != nil {
 				_ = level.Error(logger).Log("msg", "add cron job failed", "err", err.Error())

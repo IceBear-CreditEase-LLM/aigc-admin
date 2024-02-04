@@ -1,10 +1,3 @@
-/**
- * @Time: 2020/4/23 21:16
- * @Author: solacowa@gmail.com
- * @File: service_start
- * @Software: GoLand
- */
-
 package service
 
 import (
@@ -24,6 +17,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/tmc/langchaingo/llms/openai"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -54,9 +48,9 @@ import (
 var (
 	startCmd = &cobra.Command{
 		Use:   "start",
-		Short: "启动服务",
+		Short: "启动http服务",
 		Example: `## 启动命令
-aigc-admin start -p :8080 -g :8082
+aigc-admin start -p :8080
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return start(cmd.Context())
@@ -111,36 +105,10 @@ func start(ctx context.Context) (err error) {
 
 	tiktoken.SetBpeLoader(tiktoken2.NewBpeLoader(DataFs))
 
-	// 初始化 langchain
-	/*
-		llm, err := openai.New(openai.WithBaseURL(serviceChatHost), openai.WithToken(serviceChatToken))
-		if err != nil {
-			_ = level.Error(logger).Log("service", "start", "openai", "new", "err", err.Error())
-			return
-		}
-		langchainSvc = langchain.New(logger, logging.TraceId, llm)
-		if logger != nil {
-			langchainSvc = langchain.NewLogging(logger, logging.TraceId)(langchainSvc)
-		}
-		if tracer != nil {
-			langchainSvc = langchain.NewTracing(tracer)(langchainSvc)
-		}
-
-	*/
-
 	authSvc = auth.New(logger, traceId, store, rdb, apiSvc)
 	fileSvc = files.NewService(logger, traceId, store, apiSvc, files.Config{
-		S3: struct {
-			AccessKey        string
-			SecretKey        string
-			BucketName       string
-			BucketNamePublic string
-			ProjectName      string
-		}{SecretKey: serviceS3SecretKey,
-			AccessKey:        serviceS3AccessKey,
-			BucketName:       serviceS3Bucket,
-			BucketNamePublic: serviceS3BucketPublic,
-			ProjectName:      serviceS3ProjectName},
+		LocalDataPath: serverStoragePath,
+		ServerUrl:     fmt.Sprintf("%s/storage", serverDomain),
 	})
 	channelSvc = channels.NewService(logger, traceId, store, apiSvc)
 	modelSvc = models.NewService(logger, traceId, store, apiSvc, aigcDataCfsPath)
@@ -160,8 +128,8 @@ func start(ctx context.Context) (err error) {
 		//	return ctx
 		//}),
 	}, []openai.Option{
-		openai.WithToken("sk-001"),
-		openai.WithBaseURL("http://chat-api:8080/v1"),
+		openai.WithToken(serviceChatToken),
+		openai.WithBaseURL(serviceChatHost),
 	})
 
 	if logger != nil {
@@ -286,6 +254,19 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	r.HandleFunc("/health", func(writer http.ResponseWriter, request *http.Request) {
 		_, _ = writer.Write([]byte("ok"))
 	})
+	// 文件存储
+	r.PathPrefix("/storage/").Handler(http.StripPrefix("/storage/", http.FileServer(http.Dir(serverStoragePath))))
+
+	// web页面
+	if webEmbed {
+		fe, fsErr := fs.Sub(WebFs, DefaultWebPath)
+		if fsErr != nil {
+			_ = level.Error(logger).Log("FailedToSubPath", "web", "err", fsErr.Error())
+		}
+		r.PathPrefix("/").Handler(http.FileServer(http.FS(fe)))
+	} else {
+		r.PathPrefix("/").Handler(http.FileServer(http.Dir(webPath)))
+	}
 
 	if enableCORS {
 		corsHeaders["Access-Control-Allow-Origin"] = corsAllowOrigins

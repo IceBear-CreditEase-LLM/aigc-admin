@@ -1,10 +1,3 @@
-/**
- * @Time : 2023/7/7 20:08
- * @Author : solacowa@gmail.com
- * @File : bpeloader
- * @Software: GoLand
- */
-
 package tiktoken
 
 import (

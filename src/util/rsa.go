@@ -1,10 +1,3 @@
-/**
- * @Time : 2020/11/10 9:20 AM
- * @Author : solacowa@gmail.com
- * @File : encrypt
- * @Software: GoLand
- */
-
 package util
 
 import (

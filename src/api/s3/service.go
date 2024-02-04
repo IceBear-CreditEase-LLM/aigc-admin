@@ -1,10 +1,3 @@
-/**
- * @Time : 8/4/21 11:24 AM
- * @Author : solacowa@gmail.com
- * @File : service
- * @Software: GoLand
- */
-
 package s3
 
 import (

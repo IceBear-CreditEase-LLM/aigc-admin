@@ -1,10 +1,3 @@
-/**
- * @Time : 2020/7/20 4:20 PM
- * @Author : solacowa@gmail.com
- * @File : verify
- * @Software: GoLand
- */
-
 package util
 
 import (

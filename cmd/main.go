@@ -1,10 +1,3 @@
-/**
- * @Time : 14/07/2020 14:20 AM
- * @Author : solacowa@gmail.com
- * @File : main
- * @Software: GoLand
- */
-
 package main
 
 import (

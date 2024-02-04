@@ -340,15 +340,6 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 	}
 	_ = level.Info(logger).Log("baseModelName", baseModelName)
 
-	//if strings.Contains(serviceName, "-33b") || strings.Contains(serviceName, "-34b") {
-	//	cpuNum = 12
-	//	memory = 96
-	//}
-	//if strings.Contains(serviceName, "-70b") || strings.Contains(serviceName, "-72b") {
-	//	cpuNum = 24
-	//	memory = 168
-	//}
-
 	// 从数据库获取推理镜像得脚本
 	inferenceTemplate, err := s.store.FineTuning().FindFineTuningTemplateByType(ctx, baseModelName, types.TemplateTypeInference)
 	if err != nil {
@@ -367,7 +358,7 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 	var modelWorker = "fastchat.serve.model_worker"
 	if req.Vllm {
 		// tokenizer 需要提前在镜像预置好
-		modelWorker = "fastchat.serve.vllm_worker --tokenizer /data/huggingface/hf-internal-testing/llama-tokenizer"
+		modelWorker = "fastchat.serve.vllm_worker"
 	}
 
 	var port = 8080
@@ -392,6 +383,8 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 		return
 	}
 
+	req.Gpu = 0
+
 	// 生成部署命令
 	startShell := fmt.Sprintf(`python3.10 -m %s --host 0.0.0.0 --port %d \
 --controller-address %s --worker-address http://$MY_POD_IP:%d --model-name %s \
@@ -406,9 +399,10 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 			Key:   "start.sh",
 			Value: "/app/start.sh",
 		}, {
-			Key:   "/data/" + subPath,
-			Value: filepath.Join(s.aigcDataCfsPath, subPath),
+			Key:   filepath.Join(s.aigcDataCfsPath, subPath),
+			Value: "/data/" + subPath,
 		}},
+		GPU: req.Gpu,
 		ConfigData: map[string]string{
 			"start.sh": startShell,
 		},

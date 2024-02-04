@@ -1,10 +1,3 @@
-/**
- * @Time : 2019-06-24 11:22
- * @Author : solacowa@gmail.com
- * @File : endpoint
- * @Software: GoLand
- */
-
 package jwt
 
 import (

@@ -1,10 +1,3 @@
-/**
- * @Time: 2020/2/14 13:57
- * @Author: solacowa@gmail.com
- * @File: encode
- * @Software: GoLand
- */
-
 package encode
 
 import (
