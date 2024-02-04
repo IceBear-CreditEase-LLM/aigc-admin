@@ -6,28 +6,21 @@ import (
 	"errors"
 	"fmt"
 	kithttp "github.com/go-kit/kit/transport/http"
-	"github.com/go-kit/log"
-	redisclient "github.com/icowan/redis-client"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/sashabaranov/go-openai"
 	"io"
 	"net/http"
 	"net/http/httputil"
-	"os"
 	"testing"
 )
 
 func initSvc() Service {
-	logger := log.NewLogfmtLogger(os.Stdout)
-	rdb, err := redisclient.NewRedisClient("redis:6379", "", "aigc", 0, nil)
-	if err != nil {
-		fmt.Println("red err", err)
-	}
-	return New(logger, Config{
+	return New(Config{
 		OpenAiEndpoint:  "https://api.openai.com/v1",
 		OpenAiToken:     "",
 		OpenAiModel:     "gpt-3.5-turbo",
-		PaasGptEndpoint: "http://fastchat:8000",
+		LocalAiEndpoint: "http://fastchat:8000",
+		LocalAiToken:    "sk-001",
 		OpenAiOrgId:     "",
 		Debug:           true,
 	}, []kithttp.ClientOption{
@@ -48,8 +41,6 @@ func initSvc() Service {
 			return ctx
 		}),
 	},
-		rdb,
-		nil,
 	)
 }
 

@@ -15,6 +15,18 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) CreateChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (stream *openai.ChatCompletionStream, err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "CreateChatCompletionStream", "req", req,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.CreateChatCompletionStream(ctx, req)
+}
+
 func (s *logging) ChatCompletion(ctx context.Context, model string, messages []openai.ChatCompletionMessage, temperature, topP, presencePenalty, frequencyPenalty float64, maxToken, n int, stop []string, user string, functions []openai.FunctionDefinition, functionCall any) (res openai.ChatCompletionResponse, status int, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
@@ -122,23 +134,6 @@ func (s *logging) Embeddings(ctx context.Context, model string, documents any) (
 		)
 	}(time.Now())
 	return s.next.Embeddings(ctx, model, documents)
-}
-
-func (s *logging) CreateAndGetSdImage(ctx context.Context, prompt, negativePrompt, samplerIndex string, steps int) (res <-chan Txt2ImgResult, err error) {
-	defer func(begin time.Time) {
-		_ = s.logger.Log(
-			s.traceId, ctx.Value(s.traceId),
-			"method", "CreateAndGetSdImage", "prompt", prompt, "negativePrompt", negativePrompt, "samplerIndex", samplerIndex, "steps", steps,
-			"took", time.Since(begin),
-			"err", err,
-		)
-	}(time.Now())
-	return s.next.CreateAndGetSdImage(ctx, prompt, negativePrompt, samplerIndex, steps)
-}
-
-func (s *logging) GetImageProgress(ctx context.Context, idTask string, idLivePreview int) (res []byte, err error) {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (s *logging) CheckLength(ctx context.Context, prompt string, maxToken int) (tokenNum int, err error) {

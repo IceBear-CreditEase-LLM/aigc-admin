@@ -2,28 +2,20 @@ package fastchat
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/alarm"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
 	kithttp "github.com/go-kit/kit/transport/http"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-	"github.com/go-redis/redis/v8"
 	"github.com/pkg/errors"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/sashabaranov/go-openai"
 	"io"
+	"math"
 	"math/rand"
-	"mime/multipart"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"strings"
-	"sync"
-	"time"
 )
 
 type Config struct {
@@ -36,17 +28,9 @@ type Config struct {
 	OpenAiModel string
 	// OpenAI 组织ID
 	OpenAiOrgId string
-	// Chat-api 地址
-	PaasGptEndpoint string
-	// PaasTPT 默认模型
-	PaasGptModel string
-	// SdHost 地址
-	SdHost     string
-	SdRedisKey string
-	// svc 当前服务信息
-	SvcIp     string
-	SvcPort   int
-	AuthToken string
+	// localai-api 地址
+	LocalAiEndpoint string
+	LocalAiToken    string
 }
 
 type CtxPlatform string
@@ -110,8 +94,8 @@ type Service interface {
 	CreateImage(ctx context.Context, prompt, size, format string) (res []openai.ImageResponseDataInner, err error)
 	// CheckLength 验证Token是否超过相应长度
 	CheckLength(ctx context.Context, prompt string, maxToken int) (tokenNum int, err error)
-	// CreateAndGetSdImage 调用stable diffusion 文字生成图片并同时获取图片生成过程
-	CreateAndGetSdImage(ctx context.Context, prompt, negativePrompt, samplerIndex string, steps int) (res <-chan Txt2ImgResult, err error)
+	// CreateChatCompletionStream OpenAI Chat Completion openai 改版参数变化较大，直接使用 OpenAI入参
+	CreateChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (stream *openai.ChatCompletionStream, err error)
 }
 
 type chatGPTToken struct {
@@ -120,17 +104,34 @@ type chatGPTToken struct {
 }
 
 type service struct {
-	logger                                                                     log.Logger
-	host, chatGPTHost, chatGPTToken, chatGPTModel, chatGPTOrgId, sdHost, svcIp string
-	svcPort                                                                    int
-	model, authToken                                                           string
-	opts                                                                       []kithttp.ClientOption
-	debug                                                                      bool
-	sdImg                                                                      sync.Mutex
-	rdb                                                                        redis.UniversalClient
-	sdApiRedisKey                                                              string
-	alarmSvc                                                                   alarm.Service
-	chatGPTTokens                                                              []chatGPTToken
+	localAiHost, chatGPTHost, chatGPTToken, chatGPTModel, chatGPTOrgId string
+	localAiToken                                                       string
+	opts                                                               []kithttp.ClientOption
+	debug                                                              bool
+	chatGPTTokens                                                      []chatGPTToken
+}
+
+func (s *service) CreateChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (stream *openai.ChatCompletionStream, err error) {
+	var client *openai.Client
+	client, _ = s.getClient(ctx, req.Model)
+	if req.Temperature == 0 {
+		req.Temperature = math.SmallestNonzeroFloat32
+	}
+	if req.TopP == 0 {
+		req.TopP = math.SmallestNonzeroFloat32
+	}
+	if req.PresencePenalty == 0 {
+		req.PresencePenalty = math.SmallestNonzeroFloat32
+	}
+	if req.FrequencyPenalty == 0 {
+		req.FrequencyPenalty = math.SmallestNonzeroFloat32
+	}
+	stream, err = client.CreateChatCompletionStream(ctx, req)
+	if err != nil {
+		err = errors.Wrap(err, "CreateChatCompletionStream")
+		return stream, err
+	}
+	return
 }
 
 func (s *service) CancelFineTuningJob(ctx context.Context, modelName, jobId string) (err error) {
@@ -219,7 +220,7 @@ func (s *service) Embeddings(ctx context.Context, model string, documents any) (
 		return res, nil
 	}
 
-	tgt, _ := url.Parse(fmt.Sprintf("%s/v1/embeddings", s.host))
+	tgt, _ := url.Parse(fmt.Sprintf("%s/v1/embeddings", s.localAiHost))
 	ep := kithttp.NewClient(http.MethodPost, tgt, kithttp.EncodeJSONRequest, decodeJsonResponse(&res), s.opts...).Endpoint()
 	_, err = ep(ctx, map[string]any{
 		"input": documents,
@@ -237,63 +238,8 @@ func (s *service) CreateSdImageV1(ctx context.Context, prompt, negativePrompt, s
 	return
 }
 
-func (s *service) GetImageProgress(ctx context.Context, idTask string, idLivePreview int) (res []byte, err error) {
-	type req struct {
-		IdTask        string `json:"id_task"`
-		IdLivePreview int    `json:"id_live_preview"`
-	}
-
-	var resData ImageProgress
-
-	tgt, _ := url.Parse(fmt.Sprintf("%s/sdapi/v1/progress", s.host))
-	ep := kithttp.NewClient(http.MethodGet, tgt, kithttp.EncodeJSONRequest, decodeJsonResponse(&resData), s.opts...).Endpoint()
-
-	_, err = ep(ctx, req{
-		IdTask:        idTask,
-		IdLivePreview: idLivePreview,
-	})
-	if err != nil {
-		err = errors.Wrap(err, "GetImageProgress")
-		return nil, err
-	}
-	fmt.Println(resData)
-	return
-}
-
-func (s *service) ChatCompletionPaasStream(ctx context.Context, model string, messages []openai.ChatCompletionMessage, temperature, topP float64, maxToken int) (stream *openai.ChatCompletionStream, status int, err error) {
-	httpClient := http.DefaultClient
-	if s.debug {
-		httpClient = &http.Client{
-			Transport: &proxyRoundTripper{},
-		}
-	}
-	client := openai.NewClientWithConfig(openai.ClientConfig{
-		BaseURL:            fmt.Sprintf("%s/langchain/v1", s.host),
-		EmptyMessagesLimit: 300,
-		HTTPClient:         httpClient,
-	})
-
-	stream, err = client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
-		Model:       model,
-		MaxTokens:   maxToken,
-		Messages:    messages,
-		Temperature: float32(temperature),
-		TopP:        float32(topP),
-		Stream:      true,
-	})
-	if err != nil {
-		er := &openai.RequestError{}
-		if errors.As(err, &er) {
-			status = er.HTTPStatusCode
-			err = er.Err
-		}
-	}
-
-	return stream, status, err
-}
-
 func (s *service) CheckLength(ctx context.Context, prompt string, maxToken int) (tokenNum int, err error) {
-	tgt, _ := url.Parse(fmt.Sprintf("%s/worker/count_token", s.host))
+	tgt, _ := url.Parse(fmt.Sprintf("%s/worker/count_token", s.localAiHost))
 
 	ep := kithttp.NewClient(http.MethodPost, tgt, kithttp.EncodeJSONRequest, func(ctx context.Context, response *http.Response) (response1 interface{}, e error) {
 		if response.StatusCode != http.StatusOK {
@@ -336,7 +282,7 @@ func (s *service) CheckLength(ctx context.Context, prompt string, maxToken int) 
 
 func (s *service) CreateImage(ctx context.Context, prompt, size, format string) (res []openai.ImageResponseDataInner, err error) {
 	c := openai.NewClientWithConfig(openai.ClientConfig{
-		BaseURL:            fmt.Sprintf("%s/v1", s.host),
+		BaseURL:            fmt.Sprintf("%s/v1", s.localAiHost),
 		EmptyMessagesLimit: 300,
 		//HTTPClient:         http.DefaultClient,
 		HTTPClient: &http.Client{
@@ -380,35 +326,36 @@ func (s *service) Models(ctx context.Context) (res []openai.Model, err error) {
 }
 
 func (s *service) getClient(ctx context.Context, model string) (*openai.Client, string) {
-	logger := log.With(s.logger, "method", "getClient")
 	httpClient := http.DefaultClient
 	if s.debug {
 		httpClient = &http.Client{
 			Transport: &proxyRoundTripper{},
 		}
 	}
-	ran := rand.Intn(len(s.chatGPTTokens))
-	token := s.chatGPTTokens[ran].Token
-	_ = level.Info(logger).Log("traceId", ctx.Value("traceId"), "model", model, "ran", ran)
+
 	if isOpenAiModel(model) || isOpenAiEmbeddingModel(model) {
+		ran := rand.Intn(len(s.chatGPTTokens))
+		token := s.chatGPTTokens[ran].Token
 		config := openai.DefaultConfig(token)
 		config.BaseURL = s.chatGPTHost
 		config.HTTPClient = httpClient
 		return openai.NewClientWithConfig(config), model
 	}
 
+	fmt.Println("apiKey", s.localAiToken)
+
+	apiKey := s.localAiToken
 	platform, ok := ctx.Value(ContextKeyPlatform).(Platform)
 	if !ok || platform == "" {
-		apiKey := s.authToken
 		if key, exists := ctx.Value(ContextKeyApiKey).(string); exists && key != "" {
 			apiKey = key
 		}
 		config := openai.DefaultConfig(apiKey)
-		config.BaseURL = fmt.Sprintf("%s/v1", s.host)
+		config.BaseURL = fmt.Sprintf("%s/v1", s.localAiHost)
 		config.HTTPClient = httpClient
 		return openai.NewClientWithConfig(config), model
 	}
-	config := openai.DefaultConfig(token)
+	config := openai.DefaultConfig(apiKey)
 	config.BaseURL = s.chatGPTHost
 	config.HTTPClient = httpClient
 	return openai.NewClientWithConfig(config), model
@@ -490,213 +437,6 @@ func (s *service) ChatCompletion(ctx context.Context, model string, messages []o
 	return
 }
 
-func (s *service) CreateAndGetSdImage(ctx context.Context, prompt, negativePrompt, samplerIndex string, steps int) (res <-chan Txt2ImgResult, err error) {
-	logger := log.With(s.logger, "method", "CreateAndGetSdImage")
-	var sdApiHost string               //当前获取到的sdApiHost
-	var dot = make(chan Txt2ImgResult) //返回内容的channel
-
-	s.sdImg.Lock()
-	defer func() {
-		s.sdImg.Unlock()
-		//将sdApiHost地址放回redis队列
-		s.rdb.RPush(context.Background(), s.sdApiRedisKey, sdApiHost)
-		_ = level.Info(logger).Log("CreateAndGetSdImage", "over")
-	}()
-
-	//从redis队列取出一个sdApi地址
-	//BLPop 移出并获取列表的第一个元素， 如果列表没有元素会阻塞列表直到等待超时或发现可弹出元素为止
-	//BLPop 命令的返回值是一个包含两个元素的字符串切片。第一个元素是弹出的列表的名称，第二个元素是弹出的元素值。
-	resRedis, err := s.rdb.BLPop(context.Background(), time.Minute*3, s.sdApiRedisKey).Result()
-	if err != nil {
-		_ = level.Error(logger).Log("s.rdb.LPop", s.sdApiRedisKey, "err", err.Error())
-
-		//如果报错，则返回结束
-		txt2ImgResult := Txt2ImgResult{
-			Finish: true,
-			Error:  err,
-		}
-		dot <- txt2ImgResult
-		close(dot)
-
-		//发送告警
-		_ = s.alarmSvc.Push(ctx, "从Redis获取SdApiHost失败", err.Error(), "CreateAndGetSdImage", alarm.LevelError, 2)
-
-		return nil, err
-	}
-
-	_ = level.Info(logger).Log("rdb", "BLPop", "sdApiRedisKey", s.sdApiRedisKey, "list", resRedis[0], "val", resRedis[1])
-
-	//获取到的 sdApiHost 地址
-	sdApiHost = resRedis[1]
-
-	//参数默认值
-	if steps == 0 {
-		steps = 30
-	}
-	if strings.EqualFold(samplerIndex, "") {
-		samplerIndex = "Euler a"
-	}
-
-	//创建 入参
-	req := Txt2ImgRequest{
-		Steps:          steps,
-		Prompt:         prompt,
-		NegativePrompt: negativePrompt,
-		SamplerIndex:   samplerIndex,
-	}
-
-	reqStr, _ := json.Marshal(req)
-
-	_ = level.Info(logger).Log("req", string(reqStr))
-
-	parentCtx, cancel := context.WithCancel(context.Background())
-
-	//通知拉流接口开始
-	progressStart := make(chan bool)
-
-	// 启动 A 请求
-	go func() {
-		createSdImageRep := make(chan CreateSdImage)
-		go s.createSdImage(context.Background(), sdApiHost, req, createSdImageRep, progressStart)
-		select {
-		case <-parentCtx.Done():
-			fmt.Println("createSdImage 请求结束")
-			return
-		case result := <-createSdImageRep:
-			fmt.Println("createSdImage 请求返回结果:", result.SdSuccessRep.Info, "sdApiHost", sdApiHost)
-			//将最终的图片数据流传进去  //todo 未来多图如何兼容
-
-			if result.Error != nil {
-				//接口请求失败
-				txt2ImgResult := Txt2ImgResult{
-					Finish: true,
-					Error:  err,
-				}
-				dot <- txt2ImgResult
-				close(dot)
-			} else {
-				//接口请求成功
-				if len(result.SdSuccessRep.Images) > 0 {
-					resProgress := ImageProgress{}
-					resProgress.CurrentImage = result.SdSuccessRep.Images[0]
-					txt2ImgResult := Txt2ImgResult{
-						Finish:        true,
-						ImageProgress: resProgress,
-					}
-					dot <- txt2ImgResult
-					close(dot)
-				}
-			}
-			// 取消父上下文，停止 B 请求的循环
-			cancel()
-		}
-	}()
-
-	<-progressStart
-
-	go func() {
-		// 循环发起 B 请求
-		for {
-			select {
-			case <-parentCtx.Done():
-				fmt.Println("getProgress 请求停止循环")
-				cancel() //中断当前协程
-				return
-			default:
-				resProgress, err := s.getProgress(context.Background(), sdApiHost)
-				//fmt.Println("getProgress 请求结果", resProgress.State, err)
-				time.Sleep(time.Millisecond * 50)
-				if err == nil && resProgress.CurrentImage != "" && resProgress.State.SamplingStep > 5 && resProgress.State.SamplingStep < resProgress.State.SamplingSteps {
-					txt2ImgResult := Txt2ImgResult{
-						Finish:        false,
-						ImageProgress: resProgress,
-					}
-					dot <- txt2ImgResult
-				}
-			}
-		}
-	}()
-	return dot, nil
-}
-
-func (s *service) createSdImage(ctx context.Context, sdApi string, req Txt2ImgRequest, res chan<- CreateSdImage, progressStart chan<- bool) {
-	createRep := new(CreateSdImage)
-	// 发送 创建请求
-	opts := s.opts
-	opts = append(opts, kithttp.ClientBefore(func(ctx context.Context, request *http.Request) context.Context {
-		//创建请求开始后，通知拉流接口开始
-		time.Sleep(time.Millisecond * 100)
-		progressStart <- true
-		return ctx
-	}), kithttp.ClientAfter(func(ctx context.Context, response *http.Response) context.Context {
-		return ctx
-	}), kithttp.ClientFinalizer(func(ctx context.Context, err error) {
-
-	}))
-
-	//生成图片返回成功信息
-	sdSuccessRep := new(SdSuccessRep)
-	u, _ := url.Parse(fmt.Sprintf("%s/sdapi/v1/txt2img", sdApi))
-	c := kithttp.NewClient("POST", u, kithttp.EncodeJSONRequest, decodeJsonResponse(sdSuccessRep), opts...).Endpoint()
-	_, err := c(ctx, req)
-	if err != nil {
-		fmt.Println("createSdImage err:", err)
-		err = errors.Wrap(err, "createSdImage")
-		createRep.Error = err
-		res <- *createRep
-	} else {
-		createRep.SdSuccessRep = *sdSuccessRep
-		res <- *createRep
-	}
-	return
-}
-
-func (s *service) getProgress(ctx context.Context, sdApi string) (res ImageProgress, err error) {
-	progressRep := new(ImageProgress)
-	u, _ := url.Parse(fmt.Sprintf("%s/sdapi/v1/progress", sdApi))
-	c := kithttp.NewClient("GET", u, kithttp.EncodeJSONRequest, decodeJsonResponse(progressRep), []kithttp.ClientOption{}...).Endpoint()
-	_, err = c(ctx, nil)
-	if err != nil {
-		fmt.Println("getProgress err:", err)
-		err = errors.Wrap(err, "getProgress")
-		return
-	} else {
-		//fmt.Println("getProgress success")
-		res = *progressRep
-	}
-	return
-}
-
-func base64ToMultipartFile(base64Str string, fileName string) (multipart.File, error) {
-	// 解码Base64字符串
-	dec, err := base64.StdEncoding.DecodeString(base64Str)
-	if err != nil {
-		return nil, err
-	}
-	// 创建临时文件
-	file, err := os.CreateTemp("/tmp", fileName) // 可以根据实际需求指定文件名和扩展名
-	if err != nil {
-		return nil, err
-	}
-
-	// 将解码后的数据写入临时文件
-	_, err = file.Write(dec)
-	if err != nil {
-		_ = file.Close()
-		_ = os.Remove(file.Name())
-		return nil, err
-	}
-
-	// 将文件指针定位到文件开头
-	_, err = file.Seek(0, 0)
-	if err != nil {
-		_ = file.Close()
-		_ = os.Remove(file.Name())
-		return nil, err
-	}
-	return file, nil
-}
-
 func decodeJsonResponse(data interface{}) func(ctx context.Context, res *http.Response) (response interface{}, err error) {
 	return func(ctx context.Context, res *http.Response) (response interface{}, err error) {
 		if res.StatusCode == 422 {
@@ -717,25 +457,16 @@ func decodeJsonResponse(data interface{}) func(ctx context.Context, res *http.Re
 	}
 }
 
-func New(logger log.Logger, cfg Config, opts []kithttp.ClientOption, rdb redis.UniversalClient, alarmSvc alarm.Service) Service {
-	logger = log.With(logger, "api", "fastchat")
+func New(cfg Config, opts []kithttp.ClientOption) Service {
 	chatGPTTokens := parseTokens(cfg.OpenAiToken)
 	return &service{
-		logger:        logger,
-		host:          cfg.PaasGptEndpoint,
-		model:         cfg.PaasGptModel,
-		sdHost:        cfg.SdHost,
-		svcIp:         cfg.SvcIp,
-		svcPort:       cfg.SvcPort,
+		localAiHost:   cfg.LocalAiEndpoint,
 		opts:          opts,
 		chatGPTHost:   cfg.OpenAiEndpoint,
 		chatGPTToken:  cfg.OpenAiToken,
 		chatGPTOrgId:  cfg.OpenAiOrgId,
 		debug:         cfg.Debug,
-		rdb:           rdb,
-		sdApiRedisKey: cfg.SdRedisKey, //sd api list 队列
-		alarmSvc:      alarmSvc,
-		authToken:     cfg.AuthToken,
+		localAiToken:  cfg.LocalAiToken,
 		chatGPTTokens: chatGPTTokens,
 	}
 }
@@ -877,6 +608,7 @@ func isOpenAiEmbeddingModel(model string) bool {
 		"code-search-babbage-code-001",
 		"code-search-babbage-text-001",
 		"text-embedding-ada-002",
+		"text-embedding-large",
 	}, model)
 }
 

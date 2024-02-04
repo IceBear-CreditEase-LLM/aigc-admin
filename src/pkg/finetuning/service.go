@@ -762,9 +762,9 @@ func (s *service) CancelJob(ctx context.Context, tenantId uint, jobId string) (e
 		_ = level.Error(logger).Log("store.finetuning", "FindFineTuningJobByJobId", "err", "任务不可取消")
 		return encode.Invalid.Wrap(errors.Errorf("任务不可取消, status:%s", job.TrainStatus))
 	}
-	err = s.api.PaasChat().CancelFineTuningJob(ctx, jobId)
+	_, err = s._cancelJob(ctx, job.ChannelId, jobId)
 	if err != nil {
-		_ = level.Error(logger).Log("paasChat", "CancelFineTuningJob", "err", err.Error())
+		_ = level.Error(logger).Log("finetuning", "CancelFineTuningJob", "err", err.Error())
 		return encode.ErrSystem.Wrap(errors.New("取消任务失败, 请稍后重试"))
 	}
 	return

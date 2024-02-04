@@ -9,12 +9,10 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/azure"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/ldapcli"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/paaschat"
 	"github.com/go-redis/redis/v8"
 	"github.com/sashabaranov/go-openai"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"runtime"
@@ -72,9 +70,10 @@ const (
 	EnvNameTracerJaegerLogSpans = "AIGC_TRACER_JAEGER_LOG_SPANS"
 
 	// [外部Service相关]
-	EnvNameServiceAlarmHost      = "AIGC_SERVICE_ALARM_HOST"    // 告警相关
-	EnvNameServiceGptHost        = "AIGC_SERVICE_CHAT_API_HOST" // chat-api相关
-	EnvNameServiceOpenAiEnable   = "AIGC_SERVICE_OPENAI_ENABLE" // openai相关
+	EnvNameServiceAlarmHost      = "AIGC_SERVICE_ALARM_HOST"     // 告警相关
+	EnvNameServiceLocalAIHost    = "AIGC_SERVICE_CHAT_API_HOST"  // chat-api 地址
+	EnvNameServiceLocalAIToken   = "AIGC_SERVICE_CHAT_API_TOKEN" // chat-api token
+	EnvNameServiceOpenAiEnable   = "AIGC_SERVICE_OPENAI_ENABLE"  // openai相关
 	EnvNameServiceOpenAiHost     = "AIGC_SERVICE_OPENAI_HOST"
 	EnvNameServiceOpenAiToken    = "AIGC_SERVICE_OPENAI_TOKEN"
 	EnvNameServiceOpenAiModel    = "AIGC_SERVICE_OPENAI_MODEL"
@@ -163,11 +162,12 @@ const (
 	DefaultServiceAlarmHost = "http://alarm:8080"
 
 	// [gpt]相关
-	DefaultServiceChatApiHost = "http://chat-api:8080/v1"
-	DefaultServiceOpenAiHost  = "https://api.openai.com/v1"
-	DefaultServiceOpenAiToken = "sk-001"
-	DefaultServiceOpenAiModel = openai.GPT3Dot5Turbo
-	DefaultServiceOpenAiOrgId = ""
+	DefaultServiceChatApiHost  = "http://chat-api:8080/v1"
+	DefaultServiceChatApiToken = "sk-001"
+	DefaultServiceOpenAiHost   = "https://api.openai.com/v1"
+	DefaultServiceOpenAiToken  = "sk-001"
+	DefaultServiceOpenAiModel  = openai.GPT3Dot5Turbo
+	DefaultServiceOpenAiOrgId  = ""
 
 	// [ldap相关]
 	DefaultLdapHost        = "ldap://ldap"
@@ -232,7 +232,7 @@ var (
 
 	// [gpt]
 	serviceOpenAiEnable                                                           bool
-	serviceGPTHost, serviceGPTModel, serviceSdHost, serviceSdRedisKey             string
+	serviceLocalAiHost, serviceLocalAiToken                                       string
 	serviceOpenAiHost, serviceOpenAiToken, serviceOpenAiModel, serviceOpenAiOrgId string
 
 	// [s3]
@@ -328,7 +328,8 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config.path", "c", "", "配置文件路径，如果没有传入配置文件路径则默认使用环境变量")
 	rootCmd.PersistentFlags().StringVar(&serviceAlarmHost, "service.alarm.token", DefaultServiceAlarmHost, "告警中心服务地址")
 	// [gpt]
-	rootCmd.PersistentFlags().StringVar(&serviceGPTHost, "service.gpt.host", DefaultServiceChatApiHost, "Chat-Api 地址")
+	rootCmd.PersistentFlags().StringVar(&serviceLocalAiHost, "service.local.ai.host", DefaultServiceChatApiHost, "Chat-Api 地址")
+	rootCmd.PersistentFlags().StringVar(&serviceLocalAiToken, "service.local.ai.token", DefaultServiceChatApiToken, "Chat-Api Token")
 	rootCmd.PersistentFlags().BoolVar(&serviceOpenAiEnable, "service.openai.enable", false, "是否启用OpenAI服务")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiHost, "service.openai.host", DefaultServiceOpenAiHost, "OpenAI服务地址")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiModel, "service.openai.model", DefaultServiceOpenAiModel, "OpenAI模型名称")
@@ -490,11 +491,6 @@ func prepare(ctx context.Context) error {
 	// 实例化仓库
 	store = repository.New(gormDB, logger, traceId, tracer)
 
-	// 实例化外部API
-	port, _ := strconv.Atoi(strings.TrimLeft(httpAddr, ":"))
-	if ue, err := url.QueryUnescape(ldapBindPass); err == nil {
-		ldapBindPass = ue
-	}
 	apiSvc = api.NewApi(ctx, logger, traceId, serverDebug, tracer, &api.Config{
 		Namespace: namespace, ServiceName: serverName,
 		FastChat: fastchat.Config{
@@ -502,12 +498,8 @@ func prepare(ctx context.Context) error {
 			OpenAiToken:     serviceOpenAiToken,
 			OpenAiModel:     serviceOpenAiModel,
 			OpenAiOrgId:     serviceOpenAiOrgId,
-			SdHost:          serviceSdHost,
-			SdRedisKey:      serviceSdRedisKey,
-			SvcIp:           getLocalAddr(),
-			SvcPort:         port,
-			PaasGptEndpoint: serviceGPTHost,
-			PaasGptModel:    serviceGPTModel,
+			LocalAiEndpoint: serviceLocalAiHost,
+			LocalAiToken:    serviceLocalAiToken,
 			Debug:           serverDebug,
 		},
 		Ldap: ldapcli.Config{
@@ -529,11 +521,6 @@ func prepare(ctx context.Context) error {
 			Host                   string
 			Namespace, ServiceName string
 		}{Host: serviceAlarmHost, Namespace: namespace, ServiceName: serverName},
-		PaasChat: paaschat.Config{
-			Host:   serviceChatHost,
-			ApiKey: serviceChatToken,
-			Debug:  serverDebug,
-		},
 		Azure: azure.Config{
 			ChatApi: struct {
 				Host   string
@@ -599,12 +586,13 @@ func Run() {
 	serviceAlarmHost = envString(EnvNameServiceAlarmHost, DefaultServiceAlarmHost)
 
 	// [service.gpt]
-	serviceGPTHost = envString(EnvNameServiceGptHost, DefaultServiceChatApiHost)
 	serviceOpenAiEnable, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiEnable, "false"))
 	serviceOpenAiHost = envString(EnvNameServiceOpenAiHost, DefaultServiceOpenAiHost)
 	serviceOpenAiToken = envString(EnvNameServiceOpenAiToken, DefaultServiceOpenAiToken)
 	serviceOpenAiModel = envString(EnvNameServiceOpenAiModel, DefaultServiceOpenAiModel)
 	serviceOpenAiOrgId = envString(EnvNameServiceOpenAiOrgId, DefaultServiceOpenAiOrgId)
+	serviceLocalAiHost = envString(EnvNameServiceLocalAIHost, DefaultServiceChatApiHost)
+	serviceLocalAiToken = envString(EnvNameServiceLocalAIToken, DefaultServiceChatApiToken)
 
 	// [ldap]
 	ldapHost = envString(EnvNameLdapHost, DefaultLdapHost)

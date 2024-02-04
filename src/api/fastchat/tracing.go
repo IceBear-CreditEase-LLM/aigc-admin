@@ -12,10 +12,23 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) CreateChatCompletionStream(ctx context.Context, req openai.ChatCompletionRequest) (stream *openai.ChatCompletionStream, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateChatCompletionStream", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "api.fastchat",
+	})
+	defer func() {
+		span.LogKV("req", req, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.CreateChatCompletionStream(ctx, req)
+}
+
 func (s *tracing) ChatCompletion(ctx context.Context, model string, messages []openai.ChatCompletionMessage, temperature, topP, presencePenalty, frequencyPenalty float64, maxToken, n int, stop []string, user string, functions []openai.FunctionDefinition, functionCall any) (res openai.ChatCompletionResponse, status int, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "ChatCompletion", opentracing.Tag{
 		Key:   string(ext.Component),
-		Value: "Negative array index [-3] too large for array size 1",
+		Value: "api.fastchat",
 	})
 	defer func() {
 		span.LogKV("model", model, "messages", messages, "temperature", temperature, "topP", topP, "presencePenalty", presencePenalty, "frequencyPenalty", frequencyPenalty, "maxToken", maxToken, "n", n, "stop", stop, "user", user, "functions", functions, "functionCall", functionCall, "err", err)
@@ -121,24 +134,6 @@ func (s *tracing) Embeddings(ctx context.Context, model string, documents any) (
 		span.Finish()
 	}()
 	return s.next.Embeddings(ctx, model, documents)
-}
-
-func (s *tracing) CreateAndGetSdImage(ctx context.Context, prompt, negativePrompt, samplerIndex string, steps int) (res <-chan Txt2ImgResult, err error) {
-	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CreateAndGetSdImage", opentracing.Tag{
-		Key:   string(ext.Component),
-		Value: "api.fastchat",
-	})
-	defer func() {
-		span.LogKV("prompt", prompt, "negativePrompt", negativePrompt, "samplerIndex", samplerIndex, "steps", steps, "err", err)
-		span.SetTag(string(ext.Error), err != nil)
-		span.Finish()
-	}()
-	return s.next.CreateAndGetSdImage(ctx, prompt, negativePrompt, samplerIndex, steps)
-}
-
-func (s *tracing) GetImageProgress(ctx context.Context, idTask string, idLivePreview int) (res []byte, err error) {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (s *tracing) CheckLength(ctx context.Context, prompt string, maxToken int) (tokenNum int, err error) {

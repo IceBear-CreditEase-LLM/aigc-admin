@@ -9,7 +9,6 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/dockerapi"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/ldapcli"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/paaschat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/s3"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/middleware"
 	kithttp "github.com/go-kit/kit/transport/http"
@@ -27,7 +26,6 @@ type Config struct {
 	Ldap                   ldapcli.Config
 	Alarm                  alarm.Config
 	S3                     S3
-	PaasChat               paaschat.Config
 	Azure                  azure.Config
 	StorageType            string
 }
@@ -50,8 +48,6 @@ type Service interface {
 	FastChat() fastchat.Service
 	// Ldap ldap客户端
 	Ldap() ldapcli.Service
-	// PaasChat paaschat服务
-	PaasChat() paaschat.Service
 	// Azure 微软服务
 	Azure() azure.Service
 
@@ -65,7 +61,6 @@ type api struct {
 	traceId     string
 	fastChatSvc fastchat.Service
 	ldapSvc     ldapcli.Service
-	paasChatSvc paaschat.Service
 	azure       azure.Service
 	dockerapi   dockerapi.Service
 }
@@ -88,10 +83,6 @@ func (s *api) Alarm() alarm.Service {
 
 func (s *api) S3Client(ctx context.Context) s3.Service {
 	return s.s3Client
-}
-
-func (s *api) PaasChat() paaschat.Service {
-	return s.paasChatSvc
 }
 
 func (s *api) Azure() azure.Service {
@@ -121,9 +112,8 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 	if tracer != nil {
 		fastChatSvcOpts = append(opts, kithttp.ClientBefore(middleware.RecordRequestAndBody(tracer, logger, "fastChat")))
 	}
-	fastChatSvc := fastchat.New(logger, cfg.FastChat, fastChatSvcOpts, rdb, alarmSvc)
+	fastChatSvc := fastchat.New(cfg.FastChat, fastChatSvcOpts)
 	ldapSvc := ldapcli.New(cfg.Ldap)
-	paasChatSvc := paaschat.New(logger, cfg.PaasChat, opts)
 	azureSvc := azure.New(logger, cfg.Azure, opts)
 	dockerapiSvc := dockerapi.New(workspace)
 
@@ -132,7 +122,6 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		alarmSvc = alarm.NewLogging(logger, traceId)(alarmSvc)
 		s3Cli = s3.NewLogging(logger, traceId)(s3Cli)
 		fastChatSvc = fastchat.NewLogging(logger, traceId)(fastChatSvc)
-		paasChatSvc = paaschat.NewLogging(logger, traceId)(paasChatSvc)
 		azureSvc = azure.NewLogging(logger, traceId)(azureSvc)
 		dockerapiSvc = dockerapi.NewLogging(logger, traceId)(dockerapiSvc)
 
@@ -150,7 +139,6 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		alarmSvc = alarm.NewTracing(tracer)(alarmSvc)
 		fastChatSvc = fastchat.NewTracing(tracer)(fastChatSvc)
 		ldapSvc = ldapcli.NewTracing(tracer)(ldapSvc)
-		paasChatSvc = paaschat.NewTracing(tracer)(paasChatSvc)
 		azureSvc = azure.NewTracing(tracer)(azureSvc)
 		dockerapiSvc = dockerapi.NewTracing(tracer)(dockerapiSvc)
 	}
@@ -160,7 +148,6 @@ func NewApi(_ context.Context, logger log.Logger, traceId string, debug bool, tr
 		fastChatSvc: fastChatSvc,
 		ldapSvc:     ldapSvc,
 		s3Client:    s3Cli,
-		paasChatSvc: paasChatSvc,
 		azure:       azureSvc,
 		dockerapi:   dockerapiSvc,
 	}

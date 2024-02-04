@@ -36,7 +36,7 @@ type service struct {
 
 func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "ChatCompletionStream")
-	completionStream, err := s.apiSvc.PaasChat().ChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	completionStream, err := s.apiSvc.FastChat().CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:       request.Model,
 		Messages:    request.Messages,
 		MaxTokens:   request.MaxTokens,
@@ -44,7 +44,7 @@ func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompleti
 		TopP:        request.TopP,
 	})
 	if err != nil {
-		_ = level.Error(logger).Log("apiSvc.PaasChat", "ChatCompletionStream", "err", err.Error())
+		_ = level.Error(logger).Log("apiSvc.FastChat", "ChatCompletionStream", "err", err.Error())
 		return stream, err
 	}
 

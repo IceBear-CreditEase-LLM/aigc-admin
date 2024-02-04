@@ -1,10 +1,3 @@
-/**
- * @Time: 2023/02/15 15:12
- * @Author: solacowa@gmail.com
- * @File: test_init.go
- * @Software: GoLand
- */
-
 package tests
 
 import (
