@@ -25,9 +25,10 @@ services:
     volumes:
       - ./.cache/redis:/data
   aigc-admin:
-    image: aigc-admin:0.0.0-pre-test
+    image: dudulu/aigc-admin:0.0.0-pre-test
     restart: always
     build:
+      context: aigc-admin
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
@@ -38,9 +39,10 @@ services:
       - mysql
       - redis
   aigc-admin-cronjob:
-    image: aigc-admin:0.0.0-pre-test
+    image: dudulu/aigc-admin:0.0.0-pre-test
     restart: always
     build:
+      context: aigc-admin-cronjob
       dockerfile: Dockerfile
     command:
       - aigc-admin

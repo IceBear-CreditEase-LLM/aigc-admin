@@ -355,6 +355,12 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 	//	//_ = s.api.Alarm().Push(ctx, "微调任务删除configmap失败", fmt.Sprintf("微调任务删除configmap失败, serviceName: %s, err: %s", serviceName, err.Error()), "paas-chat-api", alarm.LevelWarning, 5)
 	//}
 
+	err = s.api.DockerApi().Remove(ctx, jobInfo.PaasJobName)
+	if err != nil {
+		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
+		return err
+	}
+
 	if status == types.TrainStatusFailed {
 		_ = level.Warn(logger).Log("msg", "任务失败")
 		return
@@ -462,20 +468,6 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 	//}); err != nil {
 	//	_ = level.Error(logger).Log("api.Paas", "CreateConfigMap", "err", err.Error())
 	//	return errors.Wrap(err, "api.Paas.CreateConfigMap")
-	//}
-
-	//var memory = 192
-	//var cpu = jobInfo.ProcPerNode * 4
-	//if jobInfo.BaseModelInfo.Parameters > 33 {
-	//	memory = 348
-	//} else if jobInfo.BaseModelInfo.Parameters > 20 {
-	//	memory = 256
-	//} else if jobInfo.BaseModelInfo.Parameters > 10 {
-	//	memory = 192
-	//} else if jobInfo.BaseModelInfo.Parameters > 5 {
-	//	memory = 128
-	//} else {
-	//	memory = 96
 	//}
 
 	var jobName string
