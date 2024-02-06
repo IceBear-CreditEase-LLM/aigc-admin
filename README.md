@@ -78,12 +78,16 @@ graph LR
 
 ### 安装使用步骤
 
-- 克隆项目: `git clone https://github.com/IceBear-CreditEase-LLM/aigc-admin.git`
+**将子项目一起克**
+
+- 克隆项目: `git clone --recursive https://github.com/IceBear-CreditEase-LLM/aigc-admin.git`
 - 进入项目: `cd aigc-admin`
+- 更新子项目: `git submodule update`
 
 该系统依赖**Mysql**、**Redis**和**Docker**需要安装此服务
 
-推理或训练节点只需要安装**Docker**和**Nvidia-Docker**即可。[NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit)
+推理或训练节点只需要安装**Docker**和**Nvidia-Docker**
+即可。[NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit)
 
 #### 本地开发
 
@@ -106,6 +110,8 @@ build完通常会保存在 `$(GOPATH)/bin/` 目录下
 $ docker-compose up
 ```
 
+如果不需要执行build流程，可以进入到`docker`目录下执行`docker-compose up`即可。或把`docker-compose.yaml`的`build`注释掉。
+
 ### 项目配置
 
 项目配置可以通过命令行传参或环境变量两种方式进行配置
@@ -117,9 +123,6 @@ $ docker-compose up
 执行: `./aigc-admin --help` 查看命令行参数
 
 ```bash
-# Aigc Admin服务
-有关本系统的相关概述，请参阅 http://github.com/IceBear-CreditEase-LLM/aigc-admin
-
 Usage:
   aigc-admin [command]
 
@@ -182,96 +185,102 @@ Flags:
       --service.s3.secret.key string      S3 SecretKey
 ```
 
+##### 启动http服务
+
+执行: `./aigc-admin start` 启动服务
+
+```
+Usage:
+  aigc-admin start [flags]
+
+Flags:
+      --cors.allow.credentials       是否允许跨域访问的凭证 (default true)
+      --cors.allow.headers string    允许跨域访问的头部 (default "Accept,Content-Type,Content-Length,Accept-Encoding,X-CSRF-Token,Authorization")
+      --cors.allow.methods string    允许跨域访问的方法 (default "GET,POST,PUT,DELETE,OPTIONS")
+      --cors.allow.origins string    允许跨域访问的域名 (default "*")
+      --cors.enable                  是否开启跨域访问
+      --cors.expose.headers string   允许跨域访问的头部 (default "Content-Length,Access-Control-Allow-Origin,Access-Control-Allow-Headers,Content-Type")
+  -h, --help                         help for start
+  -p, --http.port string             服务启动的http端口 (default ":8080")
+      --server.domain string         启动服务的域名 (default "http://localhost:8080")
+      --tracer.drive string          Tracer驱动 (default "jaeger")
+      --tracer.enable                是否启用Tracer
+      --tracer.jaeger.host string    Tracer Jaeger Host (default "jaeger:6832")
+      --tracer.jaeger.log.spans      Tracer Jaeger Log Spans
+      --tracer.jaeger.param float    Tracer Jaeger Param (default 1)
+      --tracer.jaeger.type string    采样器的类型 const: 固定采样, probabilistic: 随机取样, ratelimiting: 速度限制取样, remote: 基于Jaeger代理的取样 (default "const")
+      --web.embed                    是否使用embed.FS (default true)
+```
+
+##### 启动定时任务
+
+执行: `./aigc-admin cronjob start` 启动定时任务
+
+```
+Usage:
+  aigc-admin cronjob start <args> [flags]
+
+Examples:
+如果 cronjob.auto 设置为 true 并且没有传入相应用的任务名称，则将自动运行所有的任务
+
+aigc-admin cronjob start -h
+
+Flags:
+      --cronjob.auto   是否自动执行定时任务 (default true)
+  -h, --help           help for start
+```
+
 #### 系统公共环境变量配置
 
 可以修改`.env`调整相关配置
 
-##### 数据库配置
-
-| 环境变量                  | 值           | 描述               |
-|-----------------------|-------------|------------------|
-| `AIGC_DB_DRIVER`      | `mysql`     | 数据库驱动类型（可能是遗留错误） |
-| `AIGC_MYSQL_DRIVE`    | `mysql`     | 数据库驱动类型          |
-| `AIGC_MYSQL_HOST`     | `localhost` | 数据库主机地址          |
-| `AIGC_MYSQL_PORT`     | `3306`      | 数据库端口号           |
-| `AIGC_MYSQL_USER`     | `aigc`      | 数据库用户名           |
-| `AIGC_MYSQL_PASSWORD` | `admin`     | 数据库密码            |
-| `AIGC_MYSQL_DATABASE` | `aigc`      | 数据库名             |
-
-##### Redis 配置
-
-| 环境变量                  | 值            | 描述                   |
-|-----------------------|--------------|----------------------|
-| `AIGC_REDIS_HOSTS`    | `redis:6379` | Redis 服务地址和端口        |
-| `AIGC_REDIS_PREFIX`   | `aigc`       | Redis 前缀，用于区分不同的数据集合 |
-| `AIGC_REDIS_PASSWORD` |              | Redis 访问密码           |
-
-##### Tracer 链路追踪配置
-
-| 环境变量                           | 值        | 描述          |
-|--------------------------------|----------|-------------|
-| `AIGC_TRACER_ENABLE`           | `false`  | 是否启用链路追踪    |
-| `AIGC_TRACER_DRIVE`            | `jaeger` | 链路追踪驱动类型    |
-| `AIGC_TRACER_JAEGER_HOST`      |          | Jaeger 服务地址 |
-| `AIGC_TRACER_JAEGER_PARAM`     | `1`      | Jaeger 采样参数 |
-| `AIGC_TRACER_JAEGER_TYPE`      | `const`  | Jaeger 采样类型 |
-| `AIGC_TRACER_JAEGER_LOG_SPANS` | `false`  | 是否记录追踪日志    |
-
-##### 跨域配置
-
-| 环境变量               | 值       | 描述               |
-|--------------------|---------|------------------|
-| `AIGC_ENABLE_CORS` | `false` | 是否启用CORS（跨源资源共享） |
-
-##### 外部服务调用配置
-
-| 环境变量                         | 值        | 描述          |
-|------------------------------|----------|-------------|
-| `AIGC_SERVICE_ALARM_HOST`    |          | 报警服务地址      |
-| `AIGC_SERVICE_CHAT_API_HOST` |          | 聊天API服务地址   |
-| `AIGC_SERVICE_OPENAI_TOKEN`  | `sk-***` | API Key     |
-| `AIGC_SERVICE_OPENAI_ORG_ID` |          | OpenAI 组织ID |
-
-##### S3 存储配置
-
-| 环境变量                            | 值 | 描述         |
-|---------------------------------|---|------------|
-| `AIGC_SERVICE_S3_HOST`          |   | S3 服务地址    |
-| `AIGC_SERVICE_S3_ACCESS_KEY`    |   | S3 访问密钥    |
-| `AIGC_SERVICE_S3_SECRET_KEY`    |   | S3 访问密钥密码  |
-| `AIGC_SERVICE_S3_BUCKET`        |   | S3 存储桶名称   |
-| `AIGC_SERVICE_S3_BUCKET_PUBLIC` |   | S3 公共存储桶名称 |
-| `AIGC_SERVICE_S3_PROJECT_NAME`  |   | S3 项目名称    |
-
-##### 聊天API配置
-
-| 环境变量                      | 值                      | 描述       |
-|---------------------------|------------------------|----------|
-| `AIGC_SERVICE_CHAT_HOST`  | `http://chat-api:8080` | 聊天服务地址   |
-| `AIGC_SERVICE_CHAT_TOKEN` | `sk-001`               | 聊天服务访问令牌 |
-
-##### LDAP 配置
-
-| 环境变量                  | 值                    | 描述          |
-|-----------------------|----------------------|-------------|
-| `AIGC_LDAP_HOST`      | `ldap`               | LDAP 服务器地址  |
-| `AIGC_LDAP_BASE_DN`   | `OU=HABROOT,DC=corp` | LDAP 基础DN   |
-| `AIGC_LDAP_BIND_USER` |                      | LDAP 绑定用户   |
-| `AIGC_LDAP_BIND_PASS` |                      | LDAP 绑定用户密码 |
-| `AIGC_LDAP_USER_ATTR` | `mail,displayName`   | LDAP 用户属性   |
-
-##### aigc-admin 环境变量配置
-
-| 环境变量                                    | 值                | 描述       |
-|-----------------------------------------|------------------|----------|
-| `AIGC_ADMIN_SERVER_HTTP_PORT`           | `:8080`          | 服务HTTP端口 |
-| `AIGC_ADMIN_SERVER_LOG_DRIVE`           | `term`           | 日志驱动类型   |
-| `AIGC_ADMIN_SERVER_NAME`                | `aigc-admin`     | 服务名称     |
-| `AIGC_ADMIN_SERVER_DEBUG`               | `true`           | 是否开启调试模式 |
-| `AIGC_ADMIN_SERVER_LOG_LEVEL`           | `all`            | 日志级别     |
-| `AIGC_ADMIN_SERVER_LOG_PATH`            |                  | 日志路径     |
-| `AIGC_ADMIN_SERVER_LOG_NAME`            | `aigc-admin.log` | 日志文件名称   |
-| `AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY` | `sk-001`         | 默认渠道密钥   |
+| 类别                | 变量名                                   | 描述                                    |
+|-------------------|---------------------------------------|---------------------------------------|
+| 数据库配置             | AIGC_MYSQL_DRIVE                      | 数据库驱动类型                               |
+|                   | AIGC_MYSQL_HOST                       | 数据库主机地址                               |
+|                   | AIGC_MYSQL_PORT                       | 数据库端口号                                |
+|                   | AIGC_MYSQL_USER                       | 数据库用户名                                |
+|                   | AIGC_MYSQL_PASSWORD                   | 数据库密码                                 |
+|                   | AIGC_MYSQL_DATABASE                   | 数据库名称                                 |
+| Redis 配置          | AIGC_REDIS_HOSTS                      | Redis 服务地址和端口                         |
+|                   | AIGC_REDIS_PREFIX                     | Redis 前缀，用于区分不同数据集合                   |
+|                   | AIGC_REDIS_PASSWORD                   | Redis 访问密码                            |
+| Tracer 链路追踪配置     | AIGC_TRACER_ENABLE                    | 是否启用链路追踪                              |
+|                   | AIGC_TRACER_DRIVE                     | 链路追踪驱动类型                              |
+|                   | AIGC_TRACER_JAEGER_HOST               | Jaeger 服务地址                           |
+|                   | AIGC_TRACER_JAEGER_PARAM              | Jaeger 采样参数                           |
+|                   | AIGC_TRACER_JAEGER_TYPE               | Jaeger 采样类型                           |
+|                   | AIGC_TRACER_JAEGER_LOG_SPANS          | 是否记录追踪日志                              |
+| 跨域配置              | AIGC_ENABLE_CORS                      | 是否启用CORS（跨源资源共享）                      |
+|                   | AIGC_CORS_ALLOW_METHODS               | 允许的CORS方法                             |
+|                   | AIGC_CORS_ALLOW_HEADERS               | 允许的CORS头                              |
+|                   | AIGC_CORS_ALLOW_CREDENTIALS           | 是否允许CORS凭证                            |
+|                   | AIGC_CORS_ALLOW_ORIGINS               | 允许的CORS来源                             |
+| 外部服务调用配置          | AIGC_SERVICE_ALARM_HOST               | 报警服务地址                                |
+|                   | AIGC_SERVICE_CHAT_API_HOST            | 聊天API服务地址                             |
+|                   | AIGC_SERVICE_OPENAI_ORG_ID            | OpenAI 组织ID                           |
+| 聊天API配置           | AIGC_SERVICE_CHAT_HOST                | 聊天服务地址,可以是openai或localai              |
+|                   | AIGC_SERVICE_CHAT_TOKEN               | 聊天服务访问令牌                              |
+| LDAP 配置           | AIGC_LDAP_HOST                        | LDAP 服务器地址                            |
+|                   | AIGC_LDAP_BASE_DN                     | LDAP 基础DN                             |
+|                   | AIGC_LDAP_BIND_USER                   | LDAP 绑定用户                             |
+|                   | AIGC_LDAP_BIND_PASS                   | LDAP 绑定用户密码                           |
+|                   | AIGC_LDAP_USER_ATTR                   | LDAP 用户属性                             |
+| aigc-admin 环境变量配置 | AIGC_ADMIN_SERVER_HTTP_PORT           | 服务HTTP端口                              |
+|                   | AIGC_ADMIN_SERVER_LOG_DRIVE           | 日志驱动类型                                |
+|                   | AIGC_ADMIN_SERVER_NAME                | 服务名称                                  |
+|                   | AIGC_ADMIN_SERVER_DEBUG               | 是否开启调试模式                              |
+|                   | AIGC_ADMIN_SERVER_LOG_LEVEL           | 日志级别                                  |
+|                   | AIGC_ADMIN_SERVER_LOG_PATH            | 日志路径                                  |
+|                   | AIGC_ADMIN_SERVER_LOG_NAME            | 日志文件名称                                |
+|                   | AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY | 默认渠道密钥                                |
+|                   | AIGC_ADMIN_SERVER_STORAGE_PATH        | 上传文件存储的路径                             |
+|                   | AIGC_ADMIN_SERVER_DOMAIN              | 站点域名默认(http://localhost:8080),用于获取文件  |
+|                   | AIGC_ADMIN_SERVER_ADMIN_USER          | 初始化默认账号                               |
+|                   | AIGC_ADMIN_SERVER_ADMIN_PASS          | 初始化默认密码                               |
+|                   | AIGC_CRONJOB_AUTO                     | `aigc-admin cronjob start`时是否自动执行所有任务 |
+| Docker 配置         | AIGC_DOCKER_CHAT_DATA_CFS_PATH        | 本机的的模型数据路径会映射到容器的/data目录              |
+|                   | AIGC_DOCKER_WORKSPACE                 | docker 工作区                            |
 
 ## Docker镜像
 

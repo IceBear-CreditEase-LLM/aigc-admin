@@ -25,7 +25,7 @@ services:
     volumes:
       - ./.cache/redis:/data
   aigc-admin:
-    image: icowan/aigc-admin:latest
+    image: dudulu/aigc-admin:latest
     restart: always
     ports:
       - "8080:8080"
@@ -36,7 +36,7 @@ services:
       - aigc-admin
       - start
   aigc-admin-cronjob:
-    image: icowan/aigc-admin:latest
+    image: dudulu/aigc-admin:latest
     restart: always
     command:
       - aigc-admin
@@ -46,7 +46,7 @@ services:
       - mysql
       - redis
   fschat-controller:
-    image: icowan/fschat:v0.2.35
+    image: dudulu/fschat:v0.2.34
     restart: always
     ports:
       - "21001:21001"
@@ -59,7 +59,7 @@ services:
       - --port
       - 21001
   fschat-api:
-    image: icowan/fschat:v0.2.35
+    image: dudulu/fschat:v0.2.34
     restart: always
     ports:
       - "8000:8000"

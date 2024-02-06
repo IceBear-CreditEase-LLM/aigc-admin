@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/azure"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/ldapcli"
 	"github.com/go-redis/redis/v8"
@@ -125,7 +124,7 @@ const (
 	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
 
 	DefaultDbDrive       = "mysql"
-	DefaultMysqlHost     = "localhost"
+	DefaultMysqlHost     = "mysql"
 	DefaultMysqlPort     = 3306
 	DefaultMysqlUser     = "aigc"
 	DefaultMysqlPassword = ""
@@ -521,13 +520,7 @@ func prepare(ctx context.Context) error {
 			Host                   string
 			Namespace, ServiceName string
 		}{Host: serviceAlarmHost, Namespace: namespace, ServiceName: serverName},
-		Azure: azure.Config{
-			ChatApi: struct {
-				Host   string
-				ApiKey string
-			}{Host: serviceChatHost, ApiKey: serviceChatToken},
-		},
-	}, clientOpts, rdb, workspace)
+	}, clientOpts, workspace)
 
 	return err
 }

@@ -436,7 +436,7 @@ func prepare(ctx context.Context) error {
 			Host                   string
 			Namespace, ServiceName string
 		}{Host: serviceAlarmHost, Namespace: namespace, ServiceName: serverName},
-	}, clientOpts, rdb, dockerWorkspace)
+	}, clientOpts, dockerWorkspace)
 
 	Logger = logger
 	return err
