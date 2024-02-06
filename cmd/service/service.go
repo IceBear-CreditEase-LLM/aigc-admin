@@ -87,8 +87,6 @@ const (
 	EnvNameServiceS3DownloadUrl  = "AIGC_SERVICE_S3_DOWNLOAD_URL"
 	EnvNameServiceS3ProjectName  = "AIGC_SERVICE_S3_PROJECT_NAME"
 	EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
-	EnvNameServiceChatHost       = "AIGC_SERVICE_CHAT_HOST"  // chat-api 相关
-	EnvNameServiceChatToken      = "AIGC_SERVICE_CHAT_TOKEN" // chat-api 相关
 	// [docker]
 	EnvNameDockerChatDataCfsPath = "AIGC_DOCKER_CHAT_DATA_CFS_PATH" // docker 存储的位置
 	EnvNameDockerWorkspace       = "AIGC_DOCKER_WORKSPACE"          // docker 工作目录
@@ -160,8 +158,8 @@ const (
 
 	DefaultServiceAlarmHost = "http://alarm:8080"
 
-	// [gpt]相关
-	DefaultServiceChatApiHost  = "http://chat-api:8080/v1"
+	// [chat]相关
+	DefaultServiceChatApiHost  = "http://fschat-api:8000/v1"
 	DefaultServiceChatApiToken = "sk-001"
 	DefaultServiceOpenAiHost   = "https://api.openai.com/v1"
 	DefaultServiceOpenAiToken  = "sk-001"
@@ -186,8 +184,6 @@ const (
 	DefaultServiceS3BucketPublic = "aigc"
 	DefaultServiceS3Region       = "default"
 	DefaultServiceS3Cluster      = "ceph-c2"
-
-	DefaultServiceChatToken = ""
 )
 
 var (
@@ -244,8 +240,7 @@ var (
 	ldapUseSsl                                                                        bool
 
 	// [chat]
-	serviceChatHost, serviceChatToken string
-	defaultServiceChatHost            = "http://chat-api:8080"
+	defaultServiceChatHost = "http://chat-api:8080"
 
 	channelId     int
 	corsHeaders   = make(map[string]string, 3)
@@ -322,10 +317,10 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().BoolVar(&serverDebug, "server.debug", DefaultServerDebug, "是否开启Debug模式")
 	rootCmd.PersistentFlags().StringVar(&serverAdminUser, "server.admin.user", DefaultServerAdminUser, "系统管理员账号")
 	rootCmd.PersistentFlags().StringVar(&serverAdminPass, "server.admin.pass", DefaultServerAdminPass, "系统管理员密码")
-	rootCmd.PersistentFlags().StringVar(&serverStoragePath, "server.storage.path", defaultStoragePath, "文件存储绝对路金")
+	rootCmd.PersistentFlags().StringVar(&serverStoragePath, "server.storage.path", defaultStoragePath, "文件存储绝对路径")
 	// [service]
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config.path", "c", "", "配置文件路径，如果没有传入配置文件路径则默认使用环境变量")
-	rootCmd.PersistentFlags().StringVar(&serviceAlarmHost, "service.alarm.token", DefaultServiceAlarmHost, "告警中心服务地址")
+	//rootCmd.PersistentFlags().StringVar(&serviceAlarmHost, "service.alarm.token", DefaultServiceAlarmHost, "告警中心服务地址")
 	// [gpt]
 	rootCmd.PersistentFlags().StringVar(&serviceLocalAiHost, "service.local.ai.host", DefaultServiceChatApiHost, "Chat-Api 地址")
 	rootCmd.PersistentFlags().StringVar(&serviceLocalAiToken, "service.local.ai.token", DefaultServiceChatApiToken, "Chat-Api Token")
@@ -333,20 +328,17 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiHost, "service.openai.host", DefaultServiceOpenAiHost, "OpenAI服务地址")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiModel, "service.openai.model", DefaultServiceOpenAiModel, "OpenAI模型名称")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiOrgId, "service.openai.org.id", DefaultServiceOpenAiOrgId, "OpenAI OrgId")
-	// [chat]
-	rootCmd.PersistentFlags().StringVar(&serviceChatHost, "service.chat.host", defaultServiceChatHost, "ChatApi 地址")
-	rootCmd.PersistentFlags().StringVar(&serviceChatToken, "service.chat.token", DefaultServiceChatToken, "ChatApi Token")
 	// [docker]
 	rootCmd.PersistentFlags().StringVar(&aigcDataCfsPath, "docker.datacfspath", "/tmp", "data CFS Path")
 	rootCmd.PersistentFlags().StringVar(&workspace, "docker.workspace", "/tmp", "任务配置文件的存放目录")
 
 	// [s3]
-	rootCmd.PersistentFlags().StringVar(&serviceS3Host, "service.s3.host", DefaultServiceS3Host, "S3服务地址")
-	rootCmd.PersistentFlags().StringVar(&serviceS3AccessKey, "service.s3.access.key", DefaultServiceS3AccessKey, "S3 AccessKey")
-	rootCmd.PersistentFlags().StringVar(&serviceS3SecretKey, "service.s3.secret.key", DefaultServiceS3SecretKey, "S3 SecretKey")
-	rootCmd.PersistentFlags().StringVar(&serviceS3Bucket, "service.s3.bucket", DefaultServiceS3Bucket, "S3 Bucket")
+	//rootCmd.PersistentFlags().StringVar(&serviceS3Host, "service.s3.host", DefaultServiceS3Host, "S3服务地址")
+	//rootCmd.PersistentFlags().StringVar(&serviceS3AccessKey, "service.s3.access.key", DefaultServiceS3AccessKey, "S3 AccessKey")
+	//rootCmd.PersistentFlags().StringVar(&serviceS3SecretKey, "service.s3.secret.key", DefaultServiceS3SecretKey, "S3 SecretKey")
+	//rootCmd.PersistentFlags().StringVar(&serviceS3Bucket, "service.s3.bucket", DefaultServiceS3Bucket, "S3 Bucket")
 	//rootCmd.PersistentFlags().StringVar(&serviceS3BucketPublic, "service.s3.bucket.public", DefaultServiceS3BucketPublic, "S3 Bucket Public")
-	rootCmd.PersistentFlags().StringVar(&serviceS3Region, "service.s3.region", DefaultServiceS3Region, "S3 Bucket")
+	//rootCmd.PersistentFlags().StringVar(&serviceS3Region, "service.s3.region", DefaultServiceS3Region, "S3 Bucket")
 	//rootCmd.PersistentFlags().StringVar(&serviceS3Cluster, "service.s3.cluster", DefaultServiceS3Cluster, "S3 集群")
 	//rootCmd.PersistentFlags().StringVar(&serviceS3ProjectName, "service.s3.project.name", namespace, "S3 项目名称")
 
@@ -511,15 +503,6 @@ func prepare(ctx context.Context) error {
 			Attributes:   ldapUserAttr,
 			Filter:       ldapUserFilter,
 		},
-		S3: struct {
-			AccessKey, SecretKey string
-			Region, Endpoint     string
-			BucketName, Cluster  string
-		}{AccessKey: serviceS3AccessKey, SecretKey: serviceS3SecretKey, Region: serviceS3Region, Endpoint: serviceS3Host, BucketName: serviceS3Bucket, Cluster: ""},
-		Alarm: struct {
-			Host                   string
-			Namespace, ServiceName string
-		}{Host: serviceAlarmHost, Namespace: namespace, ServiceName: serverName},
 	}, clientOpts, workspace)
 
 	return err
@@ -598,16 +581,15 @@ func Run() {
 	ldapUserAttr = strings.Split(envString(EnvNameLdapUserAttr, DefaultLdapAttributes), ",")
 
 	// [service.s3]
-	serviceS3Host = envString(EnvNameServiceS3Host, DefaultServiceS3Host)
-	serviceS3AccessKey = envString(EnvNameServiceS3AccessKey, DefaultServiceS3AccessKey)
-	serviceS3SecretKey = envString(EnvNameServiceS3SecretKey, DefaultServiceS3SecretKey)
-	serviceS3Bucket = envString(EnvNameServiceS3Bucket, DefaultServiceS3Bucket)
+	//serviceS3Host = envString(EnvNameServiceS3Host, DefaultServiceS3Host)
+	//serviceS3AccessKey = envString(EnvNameServiceS3AccessKey, DefaultServiceS3AccessKey)
+	//serviceS3SecretKey = envString(EnvNameServiceS3SecretKey, DefaultServiceS3SecretKey)
+	//serviceS3Bucket = envString(EnvNameServiceS3Bucket, DefaultServiceS3Bucket)
 	//serviceS3BucketPublic = envString(EnvNameServiceS3BucketPublic, DefaultServiceS3BucketPublic)
-	serviceS3Region = envString(EnvNameServiceS3Region, DefaultServiceS3Region)
+	//serviceS3Region = envString(EnvNameServiceS3Region, DefaultServiceS3Region)
 	//serviceS3ProjectName = envString(EnvNameServiceS3ProjectName, namespace)
-	// [service.chat]
-	serviceChatHost = envString(EnvNameServiceChatHost, defaultServiceChatHost)
-	serviceChatToken = envString(EnvNameServiceChatToken, DefaultServiceChatToken)
+
+	// [docker]
 	aigcDataCfsPath = envString(EnvNameDockerChatDataCfsPath, "/tmp")
 	workspace = envString(EnvNameDockerWorkspace, "/tmp")
 

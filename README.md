@@ -132,57 +132,51 @@ Available Commands:
   generate    生成命令
   help        Help about any command
   job         任务命令
-  start       启动服务
+  start       启动http服务
 
 Flags:
-  -c, --config.path string                配置文件路径，如果没有传入配置文件路径则默认使用环境变量
-      --db.drive string                   数据库驱动 (default "mysql")
-      --db.mysql.database string          mysql数据库 (default "aigc")
-      --db.mysql.host string              mysql数据库地址: mysql (default "localhost")
-      --db.mysql.metrics                  是否启GORM的Metrics
-      --db.mysql.password string          mysql数据库密码
-      --db.mysql.port int                 mysql数据库端口 (default 3306)
-      --db.mysql.user string              mysql数据库用户 (default "aigc")
-  -h, --help                              help for aigc-admin
-      --ldap.base.dn string               LDAP Base DN (default "OU=HABROOT,DC=ORG,DC=corp")
-      --ldap.bind.pass string             LDAP Bind Password
-      --ldap.bind.user string             LDAP Bind User (default "aigc_ldap")
-      --ldap.group.filter string          LDAP Group Filter
-      --ldap.host string                  LDAP地址 (default "ldap://ldap")
-      --ldap.port int                     LDAP端口 (default 389)
-      --ldap.use.ssl                      LDAP Base DN
-      --ldap.user.attr strings            LDAP Attributes (default [name,mail,userPrincipalName,displayName,sAMAccountName])
-      --ldap.user.filter string           LDAP User Filter (default "(userPrincipalName=%s)")
-  -n, --namespace string                  命名空间 (default "aigc")
-      --redis.auth string                 连接Redis密码
-      --redis.db int                      连接Redis DB
-      --redis.hosts string                连接Redis地址 (default "redis:6379")
-      --redis.prefix string               Redis写入Cache的前缀 (default "aigc")
-      --server.admin.pass string          系统管理员密码 (default "admin")
-      --server.admin.user string          系统管理员账号 (default "admin")
-      --server.debug                      是否开启Debug模式
-      --server.key string                 本系统服务密钥 (default "Aigcfj@202401")
-      --server.log.drive string           本系统日志驱动, 支持syslog,term (default "term")
-      --server.log.level string           本系统日志级别 (default "all")
-      --server.log.name string            本系统日志名称 (default "aigc-admin.log")
-      --server.log.path string            本系统日志路径
-  -a, --server.name string                本系统服务名称 (default "aigc-admin")
-      --service.alarm.token string        告警中心服务地址 (default "http://alarm:8080")
-      --service.chat.host string          ChatApi 地址 (default "http://chat-api:8080")
-      --service.chat.token string         ChatApi Token
-      --service.gpt.host string           Chat-Api 地址 (default "http://chat-api:8080/v1")
-      --service.openai.enable             是否启用OpenAI服务
-      --service.openai.host string        OpenAI服务地址 (default "https://api.openai.com/v1")
-      --service.openai.model string       OpenAI模型名称 (default "gpt-3.5-turbo")
-      --service.openai.org.id string      OpenAI OrgId
-      --service.s3.access.key string      S3 AccessKey
-      --service.s3.bucket string          S3 Bucket (default "aigc")
-      --service.s3.bucket.public string   S3 Bucket Public (default "aigc")
-      --service.s3.cluster string         S3 集群 (default "ceph-c2")
-      --service.s3.host string            S3服务地址 (default "http://s3")
-      --service.s3.project.name string    S3 项目名称 (default "aigc")
-      --service.s3.region string          S3 Bucket (default "default")
-      --service.s3.secret.key string      S3 SecretKey
+  -c, --config.path string              配置文件路径，如果没有传入配置文件路径则默认使用环境变量
+      --db.drive string                 数据库驱动 (default "mysql")
+      --db.mysql.database string        mysql数据库 (default "aigc")
+      --db.mysql.host string            mysql数据库地址: mysql (default "mysql")
+      --db.mysql.metrics                是否启GORM的Metrics
+      --db.mysql.password string        mysql数据库密码
+      --db.mysql.port int               mysql数据库端口 (default 3306)
+      --db.mysql.user string            mysql数据库用户 (default "aigc")
+      --docker.datacfspath string       data CFS Path (default "/tmp")
+      --docker.workspace string         任务配置文件的存放目录 (default "/tmp")
+  -h, --help                            help for aigc-admin
+      --ldap.base.dn string             LDAP Base DN (default "OU=HABROOT,DC=ORG,DC=corp")
+      --ldap.bind.pass string           LDAP Bind Password
+      --ldap.bind.user string           LDAP Bind User (default "aigc_ldap")
+      --ldap.group.filter string        LDAP Group Filter
+      --ldap.host string                LDAP地址 (default "ldap://ldap")
+      --ldap.port int                   LDAP端口 (default 389)
+      --ldap.use.ssl                    LDAP Base DN
+      --ldap.user.attr strings          LDAP Attributes (default [name,mail,userPrincipalName,displayName,sAMAccountName])
+      --ldap.user.filter string         LDAP User Filter (default "(userPrincipalName=%s)")
+  -n, --namespace string                命名空间 (default "aigc")
+      --redis.auth string               连接Redis密码
+      --redis.db int                    连接Redis DB
+      --redis.hosts string              连接Redis地址 (default "redis:6379")
+      --redis.prefix string             Redis写入Cache的前缀 (default "aigc")
+      --server.admin.pass string        系统管理员密码 (default "admin")
+      --server.admin.user string        系统管理员账号 (default "admin")
+      --server.debug                    是否开启Debug模式
+      --server.key string               本系统服务密钥 (default "Aigcfj@202401")
+      --server.log.drive string         本系统日志驱动, 支持syslog,term (default "term")
+      --server.log.level string         本系统日志级别 (default "all")
+      --server.log.name string          本系统日志名称 (default "aigc-admin.log")
+      --server.log.path string          本系统日志路径
+  -a, --server.name string              本系统服务名称 (default "aigc-admin")
+      --server.storage.path string      文件存储绝对路径 (default "/usr/local/bin/aigc-admin/storage")
+      --service.alarm.token string      告警中心服务地址 (default "http://alarm:8080")
+      --service.local.ai.host string    Chat-Api 地址 (default "http://fschat-api:8000/v1")
+      --service.local.ai.token string   Chat-Api Token (default "sk-001")
+      --service.openai.enable           是否启用OpenAI服务
+      --service.openai.host string      OpenAI服务地址 (default "https://api.openai.com/v1")
+      --service.openai.model string     OpenAI模型名称 (default "gpt-3.5-turbo")
+      --service.openai.org.id string    OpenAI OrgId
 ```
 
 ##### 启动http服务
@@ -234,53 +228,46 @@ Flags:
 
 可以修改`.env`调整相关配置
 
-| 类别                | 变量名                                   | 描述                                    |
-|-------------------|---------------------------------------|---------------------------------------|
-| 数据库配置             | AIGC_MYSQL_DRIVE                      | 数据库驱动类型                               |
-|                   | AIGC_MYSQL_HOST                       | 数据库主机地址                               |
-|                   | AIGC_MYSQL_PORT                       | 数据库端口号                                |
-|                   | AIGC_MYSQL_USER                       | 数据库用户名                                |
-|                   | AIGC_MYSQL_PASSWORD                   | 数据库密码                                 |
-|                   | AIGC_MYSQL_DATABASE                   | 数据库名称                                 |
-| Redis 配置          | AIGC_REDIS_HOSTS                      | Redis 服务地址和端口                         |
-|                   | AIGC_REDIS_PREFIX                     | Redis 前缀，用于区分不同数据集合                   |
-|                   | AIGC_REDIS_PASSWORD                   | Redis 访问密码                            |
-| Tracer 链路追踪配置     | AIGC_TRACER_ENABLE                    | 是否启用链路追踪                              |
-|                   | AIGC_TRACER_DRIVE                     | 链路追踪驱动类型                              |
-|                   | AIGC_TRACER_JAEGER_HOST               | Jaeger 服务地址                           |
-|                   | AIGC_TRACER_JAEGER_PARAM              | Jaeger 采样参数                           |
-|                   | AIGC_TRACER_JAEGER_TYPE               | Jaeger 采样类型                           |
-|                   | AIGC_TRACER_JAEGER_LOG_SPANS          | 是否记录追踪日志                              |
-| 跨域配置              | AIGC_ENABLE_CORS                      | 是否启用CORS（跨源资源共享）                      |
-|                   | AIGC_CORS_ALLOW_METHODS               | 允许的CORS方法                             |
-|                   | AIGC_CORS_ALLOW_HEADERS               | 允许的CORS头                              |
-|                   | AIGC_CORS_ALLOW_CREDENTIALS           | 是否允许CORS凭证                            |
-|                   | AIGC_CORS_ALLOW_ORIGINS               | 允许的CORS来源                             |
-| 外部服务调用配置          | AIGC_SERVICE_ALARM_HOST               | 报警服务地址                                |
-|                   | AIGC_SERVICE_CHAT_API_HOST            | 聊天API服务地址                             |
-|                   | AIGC_SERVICE_OPENAI_ORG_ID            | OpenAI 组织ID                           |
-| 聊天API配置           | AIGC_SERVICE_CHAT_HOST                | 聊天服务地址,可以是openai或localai              |
-|                   | AIGC_SERVICE_CHAT_TOKEN               | 聊天服务访问令牌                              |
-| LDAP 配置           | AIGC_LDAP_HOST                        | LDAP 服务器地址                            |
-|                   | AIGC_LDAP_BASE_DN                     | LDAP 基础DN                             |
-|                   | AIGC_LDAP_BIND_USER                   | LDAP 绑定用户                             |
-|                   | AIGC_LDAP_BIND_PASS                   | LDAP 绑定用户密码                           |
-|                   | AIGC_LDAP_USER_ATTR                   | LDAP 用户属性                             |
-| aigc-admin 环境变量配置 | AIGC_ADMIN_SERVER_HTTP_PORT           | 服务HTTP端口                              |
-|                   | AIGC_ADMIN_SERVER_LOG_DRIVE           | 日志驱动类型                                |
-|                   | AIGC_ADMIN_SERVER_NAME                | 服务名称                                  |
-|                   | AIGC_ADMIN_SERVER_DEBUG               | 是否开启调试模式                              |
-|                   | AIGC_ADMIN_SERVER_LOG_LEVEL           | 日志级别                                  |
-|                   | AIGC_ADMIN_SERVER_LOG_PATH            | 日志路径                                  |
-|                   | AIGC_ADMIN_SERVER_LOG_NAME            | 日志文件名称                                |
-|                   | AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY | 默认渠道密钥                                |
-|                   | AIGC_ADMIN_SERVER_STORAGE_PATH        | 上传文件存储的路径                             |
-|                   | AIGC_ADMIN_SERVER_DOMAIN              | 站点域名默认(http://localhost:8080),用于获取文件  |
-|                   | AIGC_ADMIN_SERVER_ADMIN_USER          | 初始化默认账号                               |
-|                   | AIGC_ADMIN_SERVER_ADMIN_PASS          | 初始化默认密码                               |
-|                   | AIGC_CRONJOB_AUTO                     | `aigc-admin cronjob start`时是否自动执行所有任务 |
-| Docker 配置         | AIGC_DOCKER_CHAT_DATA_CFS_PATH        | 本机的的模型数据路径会映射到容器的/data目录              |
-|                   | AIGC_DOCKER_WORKSPACE                 | docker 工作区                            |
+| 类别                | 变量名                                   | 描述                     | 值                                                                                                 |
+|-------------------|---------------------------------------|------------------------|---------------------------------------------------------------------------------------------------|
+| 数据库配置             | AIGC_DB_DRIVER                        | 数据库驱动类型（可能的遗留错误）       | mysql                                                                                             |
+|                   | AIGC_MYSQL_DRIVE                      | 数据库驱动类型                | mysql                                                                                             |
+|                   | AIGC_MYSQL_HOST                       | 数据库主机地址                | mysql                                                                                             |
+|                   | AIGC_MYSQL_PORT                       | 数据库端口号                 | 3306                                                                                              |
+|                   | AIGC_MYSQL_USER                       | 数据库用户名                 | aigc                                                                                              |
+|                   | AIGC_MYSQL_PASSWORD                   | 数据库密码                  | admin                                                                                             |
+|                   | AIGC_MYSQL_DATABASE                   | 数据库名                   | aigc                                                                                              |
+| Redis 配置          | AIGC_REDIS_HOSTS                      | Redis服务地址和端口           | redis:6379                                                                                        |
+|                   | AIGC_REDIS_PREFIX                     | Redis前缀                | aigc                                                                                              |
+|                   | AIGC_REDIS_PASSWORD                   | Redis访问密码              |                                                                                                   |
+| Tracer 链路追踪配置     | AIGC_TRACER_ENABLE                    | 是否启用链路追踪               | false                                                                                             |
+|                   | AIGC_TRACER_DRIVE                     | 链路追踪驱动类型               | jaeger                                                                                            |
+|                   | AIGC_TRACER_JAEGER_HOST               | Jaeger服务地址             |                                                                                                   |
+|                   | AIGC_TRACER_JAEGER_PARAM              | Jaeger采样参数             | 1                                                                                                 |
+|                   | AIGC_TRACER_JAEGER_TYPE               | Jaeger采样类型             | const                                                                                             |
+|                   | AIGC_TRACER_JAEGER_LOG_SPANS          | 是否记录追踪日志               | false                                                                                             |
+| 跨域配置              | AIGC_ENABLE_CORS                      | 是否启用CORS               | true                                                                                              |
+|                   | AIGC_CORS_ALLOW_METHODS               | 允许的方法                  | GET,POST,PUT,DELETE,OPTIONS                                                                       |
+|                   | AIGC_CORS_ALLOW_HEADERS               | 允许的头                   | Accept,Content-Type,Content-Length,Accept-Encoding,X-CSRF-Token,Authorization,x-tenant-id,x-token |
+|                   | AIGC_CORS_ALLOW_CREDENTIALS           | 是否允许凭证                 | true                                                                                              |
+|                   | AIGC_CORS_ALLOW_ORIGINS               | 允许的来源                  | *                                                                                                 |
+| 外部服务调用配置          | AIGC_SERVICE_ALARM_HOST               | 报警服务地址                 |                                                                                                   |
+|                   | AIGC_SERVICE_CHAT_API_HOST            | 聊天API服务地址              | http://fschat-api:8000                                                                            |
+|                   | AIGC_SERVICE_OPENAI_HOST              | OpenAI配置服务地址           | https://api.openai.com/v1                                                                         |
+| LDAP 配置           | AIGC_LDAP_HOST                        | LDAP服务器地址              | ldap                                                                                              |
+|                   | AIGC_LDAP_BASE_DN                     | LDAP基础DN               | OU=HABROOT,DC=corp                                                                                |
+|                   | AIGC_LDAP_USER_ATTR                   | LDAP用户属性               | name,mail,userPrincipalName,displayName,sAMAccountName                                            |
+| aigc-admin 环境变量配置 | AIGC_ADMIN_SERVER_HTTP_PORT           | 服务HTTP端口               | :8080                                                                                             |
+|                   | AIGC_ADMIN_SERVER_LOG_DRIVE           | 日志驱动类型                 | term                                                                                              |
+|                   | AIGC_ADMIN_SERVER_NAME                | 服务名称                   | aigc-admin                                                                                        |
+|                   | AIGC_ADMIN_SERVER_DEBUG               | 是否开启调试模式               | true                                                                                              |
+|                   | AIGC_ADMIN_SERVER_LOG_LEVEL           | 日志级别                   | all                                                                                               |
+|                   | AIGC_ADMIN_SERVER_LOG_NAME            | 日志文件名称                 | aigc-admin.log                                                                                    |
+|                   | AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY | 默认渠道密钥                 | sk-001                                                                                            |
+|                   | AIGC_ADMIN_SERVER_ADMIN_USER          | 初始化默认账号                | admin                                                                                             |
+|                   | AIGC_ADMIN_SERVER_ADMIN_PASS          | 初始化默认密码                | admin                                                                                             |
+| Docker 配置         | AIGC_DOCKER_CHAT_DATA_CFS_PATH        | 本机的模型数据路径映射到容器的/data目录 | /tmp/data                                                                                         |
+|                   | AIGC_DOCKER_WORKSPACE                 | Docker的工作目录            | /tmp/docker-home                                                                                  |
 
 ## Docker镜像
 

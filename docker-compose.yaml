@@ -24,6 +24,13 @@ services:
       - "6379:6379"
     volumes:
       - ./.cache/redis:/data
+  nginx:
+    image: nginx:latest
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./aigc-admin.conf:/etc/nginx/conf.d/aigc-admin.conf
   aigc-admin:
     image: dudulu/aigc-admin:0.0.0-pre-test
     restart: always

@@ -63,8 +63,7 @@ const (
 
 	// [外部Service相关]
 	EnvNameServerHttpProxy       = "AIGC_SERVER_HTTP_PROXY"
-	EnvNameServiceAlarmHost      = "AIGC_SERVICE_ALARM_HOST"    // 告警相关
-	EnvNameServiceGptHost        = "AIGC_SERVICE_CHAT_API_HOST" // chat-api相关
+	EnvNameServiceAlarmHost      = "AIGC_SERVICE_ALARM_HOST" // 告警相关
 	EnvNameServiceOpenAiHost     = "AIGC_SERVICE_OPENAI_HOST"
 	EnvNameServiceOpenAiToken    = "AIGC_SERVICE_OPENAI_TOKEN"
 	EnvNameServiceOpenAiModel    = "AIGC_SERVICE_OPENAI_MODEL"
@@ -163,8 +162,6 @@ const (
 	DefaultServiceS3Region       = "default"
 	DefaultServiceS3Cluster      = "ceph-c2"
 	DefaultDockerWorkspace       = "/tmp"
-
-	DefaultServiceChatToken = ""
 )
 
 var (
@@ -194,8 +191,7 @@ var (
 	tracerJaegerParam                                                                                  float64
 	serviceAlarmHost                                                                                   string
 
-	// [gpt]
-	serviceGPTHost, serviceGPTModel                                               string
+	// [openai]
 	serviceOpenAiHost, serviceOpenAiToken, serviceOpenAiModel, serviceOpenAiOrgId string
 
 	// [s3]
@@ -270,7 +266,7 @@ func preRun() {
 	serviceAlarmHost = envString(EnvNameServiceAlarmHost, DefaultServiceAlarmHost)
 
 	// [service.gpt]
-	serviceGPTHost = envString(EnvNameServiceGptHost, DefaultServiceChatApiHost)
+	//serviceGPTHost = envString(EnvNameServiceGptHost, DefaultServiceChatApiHost)
 	serviceOpenAiHost = envString(EnvNameServiceOpenAiHost, DefaultServiceOpenAiHost)
 	serviceOpenAiToken = envString(EnvNameServiceOpenAiToken, DefaultServiceOpenAiToken)
 	serviceOpenAiModel = envString(EnvNameServiceOpenAiModel, DefaultServiceOpenAiModel)

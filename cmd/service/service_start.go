@@ -128,8 +128,8 @@ func start(ctx context.Context) (err error) {
 		//	return ctx
 		//}),
 	}, []openai.Option{
-		openai.WithToken(serviceChatToken),
-		openai.WithBaseURL(serviceChatHost),
+		openai.WithToken(serviceLocalAiToken),
+		openai.WithBaseURL(serviceLocalAiHost),
 	})
 
 	if logger != nil {
