@@ -1,7 +1,7 @@
 # Node 打包前端镜像
 FROM node:18.16.1-alpine3.18 AS node-dev
 
-COPY ./frontend /app/web
+COPY ./aigc-admin-web /app/web
 WORKDIR /app/web
 # install packages
 RUN npm install pnpm -g --registry https://registry.npmmirror.com/
