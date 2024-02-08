@@ -1,0 +1,75 @@
+version: "3"
+services:
+  mysql:
+    image: mysql:8.3.0
+    restart: always
+    environment:
+      - MYSQL_DATABASE=aigc
+      - MYSQL_USER=aigc
+      - MYSQL_PASSWORD=admin
+      - MYSQL_ROOT_PASSWORD=admin@123
+      - TZ=Asia/Shanghai
+    command: [
+      '--character-set-server=utf8mb4',
+      '--collation-server=utf8mb4_unicode_ci',
+    ]
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./.cache/mysql:/var/lib/mysql
+  redis:
+    image: redis:6.2
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./.cache/redis:/data
+  aigc-admin:
+    image: dudulu/aigc-admin:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+    command:
+      - aigc-admin
+      - start
+  aigc-admin-cronjob:
+    image: dudulu/aigc-admin:latest
+    restart: always
+    command:
+      - aigc-admin
+      - cronjob
+      - start
+    depends_on:
+      - mysql
+      - redis
+  fschat-controller:
+    image: dudulu/fschat:v0.2.34
+    restart: always
+    ports:
+      - "21001:21001"
+    command:
+      - python3
+      - -m
+      - fastchat.serve.controller
+      - --host
+      - 0.0.0.0
+      - --port
+      - 21001
+  fschat-api:
+    image: dudulu/fschat:v0.2.34
+    restart: always
+    ports:
+      - "8000:8000"
+    command:
+      - python3
+      - -m
+      - fastchat.serve.openai_api_server
+      - --host
+      - 0.0.0.0
+      - --port
+      - 8000
+      - --controller-address
+      - http://fschat-controller:21001
