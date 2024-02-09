@@ -776,6 +776,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	file := NewFile(alpacaDada) // 将 []byte 转换为 multipart.File
 
 	fileUrl, err := s.fileSvc.UploadLocal(ctx, file, "json")
+
 	if err != nil {
 		_ = level.Error(logger).Log("fileSvc", "UploadLocal", "err", err.Error())
 		return
@@ -784,7 +785,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	return fileUrl, nil
 }
 
-func New(traceId string, logger log.Logger, store repository.Repository, bucketName, s3AccessKey, s3SecretKey string, apiSvc api.Service, rdb redis.UniversalClient, dataCfsPath string) Service {
+func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc api.Service, rdb redis.UniversalClient, dataCfsPath string) Service {
 	return &service{
 		traceId:     traceId,
 		logger:      logger,
@@ -793,6 +794,7 @@ func New(traceId string, logger log.Logger, store repository.Repository, bucketN
 		api:         apiSvc,
 		rdb:         rdb,
 		dataCfsPath: dataCfsPath,
+		fileSvc:     fileSvc,
 	}
 }
 

@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/finetuning"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
@@ -30,7 +32,11 @@ aigc-admin job -h
 			if err = prepare(cmd.Context()); err != nil {
 				return errors.Wrap(err, "prepare")
 			}
-			fineTuningSvc = finetuning.New(traceId, logger, store, serviceS3Bucket, serviceS3AccessKey, serviceS3SecretKey, apiSvc, rdb, aigcDataCfsPath)
+			fileSvc = files.NewService(logger, traceId, store, apiSvc, files.Config{
+				LocalDataPath: serverStoragePath,
+				ServerUrl:     fmt.Sprintf("%s/storage", serverDomain),
+			})
+			fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, rdb, aigcDataCfsPath)
 			return nil
 		},
 	}
