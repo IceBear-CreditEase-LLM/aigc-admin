@@ -16,7 +16,6 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sashabaranov/go-openai"
@@ -70,7 +69,6 @@ type service struct {
 	namespace   string
 	dataCfsPath string
 	mu          sync.Mutex
-	rdb         redis.UniversalClient
 	fileSvc     files.Service
 }
 
@@ -293,20 +291,6 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	lockKey := fmt.Sprintf("fine-tune:%s", fineTuningJob)
-	acquired, err := s.rdb.SetNX(ctx, lockKey, 1, 2*time.Minute).Result()
-	if err != nil {
-		_ = level.Warn(logger).Log("redis", "SetNX", "err", err.Error())
-		return
-	}
-	_ = level.Info(logger).Log("lockKey", lockKey, "acquired", acquired)
-	if acquired {
-		defer func() {
-			if rdbErr := s.rdb.Del(ctx, lockKey).Err(); rdbErr != nil {
-				_ = level.Warn(logger).Log("redis", "Del", "err", rdbErr.Error())
-			}
-		}()
-	}
 
 	// 查看相关数据
 	jobInfo, err := s.store.FineTuning().FindFineTuningJobByJobId(ctx, fineTuningJob, "Template", "BaseModelInfo")
@@ -785,14 +769,13 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	return fileUrl, nil
 }
 
-func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc api.Service, rdb redis.UniversalClient, dataCfsPath string) Service {
+func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc api.Service, dataCfsPath string) Service {
 	return &service{
 		traceId:     traceId,
 		logger:      logger,
 		store:       store,
 		namespace:   "aigc",
 		api:         apiSvc,
-		rdb:         rdb,
 		dataCfsPath: dataCfsPath,
 		fileSvc:     fileSvc,
 	}

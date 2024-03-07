@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/ldapcli"
-	"github.com/go-redis/redis/v8"
 	"github.com/sashabaranov/go-openai"
 	"net"
 	"net/http"
@@ -23,7 +22,6 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	redisclient "github.com/icowan/redis-client"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -48,10 +46,10 @@ const (
 	EnvNameMysqlUser     = "AIGC_MYSQL_USER"
 	EnvNameMysqlPassword = "AIGC_MYSQL_PASSWORD"
 	EnvNameMysqlDatabase = "AIGC_MYSQL_DATABASE"
-	EnvNameRedisHosts    = "AIGC_REDIS_HOSTS"
-	EnvNameRedisDb       = "AIGC_REDIS_DB"
-	EnvNameRedisPassword = "AIGC_REDIS_PASSWORD"
-	EnvNameRedisPrefix   = "AIGC_REDIS_PREFIX"
+	//EnvNameRedisHosts    = "AIGC_REDIS_HOSTS"
+	//EnvNameRedisDb       = "AIGC_REDIS_DB"
+	//EnvNameRedisPassword = "AIGC_REDIS_PASSWORD"
+	//EnvNameRedisPrefix   = "AIGC_REDIS_PREFIX"
 
 	// [跨域]
 	EnvNameEnableCORS           = "AIGC_ENABLE_CORS"
@@ -209,7 +207,7 @@ var (
 )
 
 var (
-	rdb    redis.UniversalClient
+	//rdb    redis.UniversalClient
 	apiSvc api.Service
 	//hashId   hashids.HashIds
 	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                            string
@@ -442,12 +440,12 @@ func prepare(ctx context.Context) error {
 	}
 
 	// 实例化redis
-	rdb, err = redisclient.NewRedisClient(redisHosts, redisAuth, redisPrefix, redisDb, tracer)
-	if err != nil {
-		_ = level.Error(logger).Log("redis", "connect", "err", err.Error())
-		return err
-	}
-	_ = level.Debug(logger).Log("redis", "connect", "success", true)
+	//rdb, err = redisclient.NewRedisClient(redisHosts, redisAuth, redisPrefix, redisDb, tracer)
+	//if err != nil {
+	//	_ = level.Error(logger).Log("redis", "connect", "err", err.Error())
+	//	return err
+	//}
+	//_ = level.Debug(logger).Log("redis", "connect", "success", true)
 
 	//go func() {
 	//	for {
@@ -523,10 +521,10 @@ func Run() {
 	mysqlDatabase = envString(EnvNameMysqlDatabase, DefaultMysqlDatabase)
 
 	// [redis]
-	redisHosts = envString(EnvNameRedisHosts, DefaultRedisHosts)
-	redisDb, _ = strconv.Atoi(envString(EnvNameRedisDb, strconv.Itoa(DefaultRedisDb)))
-	redisAuth = envString(EnvNameRedisPassword, DefaultRedisPassword)
-	redisPrefix = envString(EnvNameRedisPrefix, DefaultRedisPrefix)
+	//redisHosts = envString(EnvNameRedisHosts, DefaultRedisHosts)
+	//redisDb, _ = strconv.Atoi(envString(EnvNameRedisDb, strconv.Itoa(DefaultRedisDb)))
+	//redisAuth = envString(EnvNameRedisPassword, DefaultRedisPassword)
+	//redisPrefix = envString(EnvNameRedisPrefix, DefaultRedisPrefix)
 
 	// [cors]
 	enableCORS, _ = strconv.ParseBool(envString(EnvNameEnableCORS, strconv.FormatBool(DefaultEnableCORS)))
@@ -667,7 +665,7 @@ func closeConnection(ctx context.Context) {
 	if db != nil {
 		_ = level.Debug(logger).Log("db", "close", "err", db.Close())
 	}
-	if rdb != nil {
-		_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())
-	}
+	//if rdb != nil {
+	//	_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())
+	//}
 }

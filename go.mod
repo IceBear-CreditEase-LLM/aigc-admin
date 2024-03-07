@@ -10,11 +10,9 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/go-ldap/ldap/v3 v3.4.5
 	github.com/go-playground/validator/v10 v10.14.1
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.4.0
 	github.com/gorilla/mux v1.8.0
-	github.com/icowan/redis-client v0.9.1
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/oklog/oklog v0.3.2
 	github.com/opentracing/opentracing-go v1.2.0
@@ -48,7 +46,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect

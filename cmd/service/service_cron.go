@@ -89,7 +89,7 @@ func cronStart(ctx context.Context, args []string) (err error) {
 			ProjectName      string
 		}{AccessKey: serviceS3AccessKey, SecretKey: serviceS3SecretKey, BucketName: serviceS3Bucket, BucketNamePublic: serviceS3BucketPublic, ProjectName: serviceS3ProjectName},
 	})
-	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, rdb, aigcDataCfsPath)
+	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, aigcDataCfsPath)
 
 	crontab := cron.New(cron.WithSeconds()) //精确到秒
 

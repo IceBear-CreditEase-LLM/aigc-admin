@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	authjwt "github.com/IceBear-CreditEase-LLM/aigc-admin/src/jwt"
@@ -11,7 +10,6 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/go-redis/redis/v8"
 	jwt2 "github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -42,8 +40,8 @@ type service struct {
 	logger  log.Logger
 	traceId string
 	store   repository.Repository
-	rdb     redis.UniversalClient
-	apiSvc  api.Service
+	//rdb     redis.UniversalClient
+	apiSvc api.Service
 }
 
 func (s *service) UpdateAccount(ctx context.Context, request UpdateAccountRequest) (err error) {
@@ -203,26 +201,26 @@ func (s *service) Login(ctx context.Context, username, password string) (res log
 		return res, encode.ErrAccountLogin.Error()
 	}
 
-	loginKey := fmt.Sprintf("aigc:auth:login:%s", username)
-	if s.rdb.Incr(ctx, loginKey).Val() > 1 {
-		_ = s.rdb.Expire(ctx, loginKey, time.Minute).Err()
-		_ = level.Error(logger).Log("auth", "login", "username", username, "err", encode.ErrLimiter.Error())
-		return res, encode.ErrLimiter.Error()
-	}
-	defer func() {
-		_ = s.rdb.Del(ctx, loginKey).Err()
-	}()
-
-	errLoginKey := fmt.Sprintf("aigc:auth:login:err:%s", username)
-	errNum, err := s.rdb.Get(ctx, errLoginKey).Int()
-	if err != nil && !errors.Is(err, redis.Nil) {
-		_ = level.Error(logger).Log("auth", "login, redis get errLoginKey error", "username", username, "err", err.Error())
-		return res, encode.ErrSystem.Wrap(errors.New("登录失败，请联系管理员"))
-	}
-	if errNum >= 5 {
-		_ = level.Error(logger).Log("auth", "login too many error times", "username", username, "err", encode.ErrLimiter.Error())
-		return res, encode.ErrAccountLocked.Error()
-	}
+	//loginKey := fmt.Sprintf("aigc:auth:login:%s", username)
+	//if s.rdb.Incr(ctx, loginKey).Val() > 1 {
+	//	_ = s.rdb.Expire(ctx, loginKey, time.Minute).Err()
+	//	_ = level.Error(logger).Log("auth", "login", "username", username, "err", encode.ErrLimiter.Error())
+	//	return res, encode.ErrLimiter.Error()
+	//}
+	//defer func() {
+	//	_ = s.rdb.Del(ctx, loginKey).Err()
+	//}()
+	//
+	//errLoginKey := fmt.Sprintf("aigc:auth:login:err:%s", username)
+	//errNum, err := s.rdb.Get(ctx, errLoginKey).Int()
+	//if err != nil && !errors.Is(err, redis.Nil) {
+	//	_ = level.Error(logger).Log("auth", "login, redis get errLoginKey error", "username", username, "err", err.Error())
+	//	return res, encode.ErrSystem.Wrap(errors.New("登录失败，请联系管理员"))
+	//}
+	//if errNum >= 5 {
+	//	_ = level.Error(logger).Log("auth", "login too many error times", "username", username, "err", encode.ErrLimiter.Error())
+	//	return res, encode.ErrAccountLocked.Error()
+	//}
 
 	// 获取账号信息
 	account, err := s.store.Auth().GetAccountByEmail(ctx, username)
@@ -243,16 +241,16 @@ func (s *service) Login(ctx context.Context, username, password string) (res log
 			return res, encode.ErrAccountLogin.Error()
 		}
 		if !authenticate {
-			_ = s.rdb.Incr(ctx, errLoginKey).Err()
-			_ = s.rdb.Expire(ctx, errLoginKey, time.Minute*30).Err()
+			//_ = s.rdb.Incr(ctx, errLoginKey).Err()
+			//_ = s.rdb.Expire(ctx, errLoginKey, time.Minute*30).Err()
 			_ = level.Error(logger).Log("auth", "login authenticate false", "username", username)
 			return res, encode.ErrAccountLogin.Error()
 		}
 	} else {
 		err = bcrypt.CompareHashAndPassword([]byte(account.PasswordHash), []byte(password))
 		if err != nil {
-			_ = s.rdb.Incr(ctx, errLoginKey).Err()
-			_ = s.rdb.Expire(ctx, errLoginKey, time.Minute*30).Err()
+			//_ = s.rdb.Incr(ctx, errLoginKey).Err()
+			//_ = s.rdb.Expire(ctx, errLoginKey, time.Minute*30).Err()
 			_ = level.Error(logger).Log("auth", "login, bcrypt.CompareHashAndPassword error", "username", username, "err", err.Error())
 			return res, encode.ErrAccountLogin.Error()
 		}
@@ -320,13 +318,13 @@ func convertAccount(data *types.Accounts) Account {
 
 func New(logger log.Logger, traceId string,
 	store repository.Repository,
-	rdb redis.UniversalClient,
+	//rdb redis.UniversalClient,
 	apiSvc api.Service) Service {
 	return &service{
 		logger:  logger,
 		traceId: traceId,
 		store:   store,
-		rdb:     rdb,
-		apiSvc:  apiSvc,
+		//rdb:     rdb,
+		apiSvc: apiSvc,
 	}
 }

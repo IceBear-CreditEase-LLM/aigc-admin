@@ -14,8 +14,6 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/go-redis/redis/v8"
-	redisclient "github.com/icowan/redis-client"
 	"github.com/sashabaranov/go-openai"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -41,10 +39,10 @@ const (
 	EnvNameMysqlUser     = "AIGC_MYSQL_USER"
 	EnvNameMysqlPassword = "AIGC_MYSQL_PASSWORD"
 	EnvNameMysqlDatabase = "AIGC_MYSQL_DATABASE"
-	EnvNameRedisHosts    = "AIGC_REDIS_HOSTS"
-	EnvNameRedisDb       = "AIGC_REDIS_DB"
-	EnvNameRedisPassword = "AIGC_REDIS_PASSWORD"
-	EnvNameRedisPrefix   = "AIGC_REDIS_PREFIX"
+	//EnvNameRedisHosts    = "AIGC_REDIS_HOSTS"
+	//EnvNameRedisDb       = "AIGC_REDIS_DB"
+	//EnvNameRedisPassword = "AIGC_REDIS_PASSWORD"
+	//EnvNameRedisPrefix   = "AIGC_REDIS_PREFIX"
 
 	// [跨域]
 	EnvNameEnableCORS           = "AIGC_ENABLE_CORS"
@@ -107,10 +105,10 @@ const (
 	DefaultMysqlUser     = "aigc"
 	DefaultMysqlPassword = ""
 	DefaultMysqlDatabase = "aigc"
-	DefaultRedisHosts    = "localhost:6379"
-	DefaultRedisDb       = 0
-	DefaultRedisPassword = ""
-	DefaultRedisPrefix   = "aigc"
+	//DefaultRedisHosts    = "localhost:6379"
+	//DefaultRedisDb       = 0
+	//DefaultRedisPassword = ""
+	//DefaultRedisPrefix   = "aigc"
 
 	DefaultServerName      = "aigc-admin"
 	DefaultServerKey       = ""
@@ -178,12 +176,13 @@ var (
 )
 
 var (
-	rdb    redis.UniversalClient
+	//redisDb int
+	//redisAuth, redisHosts, redisPrefix string
 	apiSvc api.Service
 	//hashId   hashids.HashIds
 	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                        string
-	mysqlPort, redisDb, ormPort                                                                        int
-	redisAuth, redisHosts, redisPrefix, serverHttpProxy                                                string
+	mysqlPort, ormPort                                                                                 int
+	serverHttpProxy                                                                                    string
 	serverName, serverKey, serverLogLevel, serverLogDrive, serverLogPath, serverLogName                string
 	corsAllowOrigins, corsAllowMethods, corsAllowHeaders, corsExposeHeaders                            string
 	serverDebug, enableCORS, corsAllowCredentials, tracerEnable, tracerJaegerLogSpans, mysqlOrmMetrics bool
@@ -232,10 +231,10 @@ func preRun() {
 	mysqlDatabase = envString(EnvNameMysqlDatabase, DefaultMysqlDatabase)
 
 	// [redis]
-	redisHosts = envString(EnvNameRedisHosts, DefaultRedisHosts)
-	redisDb, _ = strconv.Atoi(envString(EnvNameRedisDb, strconv.Itoa(DefaultRedisDb)))
-	redisAuth = envString(EnvNameRedisPassword, DefaultRedisPassword)
-	redisPrefix = envString(EnvNameRedisPrefix, DefaultRedisPrefix)
+	//redisHosts = envString(EnvNameRedisHosts, DefaultRedisHosts)
+	//redisDb, _ = strconv.Atoi(envString(EnvNameRedisDb, strconv.Itoa(DefaultRedisDb)))
+	//redisAuth = envString(EnvNameRedisPassword, DefaultRedisPassword)
+	//redisPrefix = envString(EnvNameRedisPrefix, DefaultRedisPrefix)
 
 	// [cors]
 	enableCORS, _ = strconv.ParseBool(envString(EnvNameEnableCORS, strconv.FormatBool(DefaultEnableCORS)))
@@ -295,14 +294,14 @@ func preRun() {
 
 }
 
-func Init() (rdb redis.UniversalClient, apiSvc api.Service, err error) {
+func Init() (apiSvc api.Service, err error) {
 	preRun()
 	err = prepare(context.Background())
 	if err != nil {
 		fmt.Println(err)
-		return nil, nil, err
+		return nil, err
 	}
-	return rdb, apiSvc, nil
+	return apiSvc, nil
 }
 
 func envString(env, fallback string) string {
@@ -377,12 +376,12 @@ func prepare(ctx context.Context) error {
 	}
 
 	// 实例化redis
-	rdb, err = redisclient.NewRedisClient(redisHosts, redisAuth, redisPrefix, redisDb, nil)
-	if err != nil {
-		_ = level.Error(logger).Log("redis", "connect", "err", err.Error())
-		return err
-	}
-	_ = level.Debug(logger).Log("redis", "connect", "success", true)
+	//rdb, err = redisclient.NewRedisClient(redisHosts, redisAuth, redisPrefix, redisDb, nil)
+	//if err != nil {
+	//	_ = level.Error(logger).Log("redis", "connect", "err", err.Error())
+	//	return err
+	//}
+	//_ = level.Debug(logger).Log("redis", "connect", "success", true)
 
 	var clientOpts []kithttp.ClientOption
 	dialer := &net.Dialer{

@@ -8,7 +8,9 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/assistants"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/auth"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/channels"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/datasetdocument"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/datasets"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/datasettask"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/finetuning"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/models"
@@ -23,7 +25,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -91,28 +92,30 @@ aigc-admin start -p :8080
 
 	authSvc auth.Service
 
-	fileSvc       files.Service
-	channelSvc    channels.Service
-	modelSvc      models.Service
-	fineTuningSvc finetuning.Service
-	sysSvc        sys.Service
-	datasetSvc    datasets.Service
-	toolsSvc      tools.Service
-	assistantsSvc assistants.Service
+	fileSvc            files.Service
+	channelSvc         channels.Service
+	modelSvc           models.Service
+	fineTuningSvc      finetuning.Service
+	sysSvc             sys.Service
+	datasetSvc         datasets.Service
+	datasetDocumentSvc datasetdocument.Service
+	datasetTaskSvc     datasettask.Service
+	toolsSvc           tools.Service
+	assistantsSvc      assistants.Service
 )
 
 func start(ctx context.Context) (err error) {
 
 	tiktoken.SetBpeLoader(tiktoken2.NewBpeLoader(DataFs))
 
-	authSvc = auth.New(logger, traceId, store, rdb, apiSvc)
+	authSvc = auth.New(logger, traceId, store, apiSvc)
 	fileSvc = files.NewService(logger, traceId, store, apiSvc, files.Config{
 		LocalDataPath: serverStoragePath,
 		ServerUrl:     fmt.Sprintf("%s/storage", serverDomain),
 	})
 	channelSvc = channels.NewService(logger, traceId, store, apiSvc)
 	modelSvc = models.NewService(logger, traceId, store, apiSvc, aigcDataCfsPath)
-	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, rdb, aigcDataCfsPath)
+	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, aigcDataCfsPath)
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)
 	datasetSvc = datasets.New(logger, traceId, store)
 	toolsSvc = tools.New(logger, traceId, store)
@@ -131,6 +134,8 @@ func start(ctx context.Context) (err error) {
 		openai.WithToken(serviceLocalAiToken),
 		openai.WithBaseURL(serviceLocalAiHost),
 	})
+	datasetDocumentSvc = datasetdocument.Nes(traceId, logger, store)
+	datasetTaskSvc = datasettask.New(traceId, logger, store)
 
 	if logger != nil {
 		authSvc = auth.NewLogging(logger, logging.TraceId)(authSvc)
@@ -189,20 +194,33 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 		kithttp.ServerErrorHandler(logging.NewLogErrorHandler(level.Error(logger), apiSvc)),
 		kithttp.ServerBefore(kithttp.PopulateRequestContext),
 		kithttp.ServerBefore(func(ctx context.Context, request *http.Request) context.Context {
-			guid := request.Header.Get("X-Request-Id")
-			//token := request.Header.Get("Authorization")
-			token := request.Header.Get("X-Token")
-			tenantId := request.Header.Get("X-Tenant-Id")
-			if strings.EqualFold(token, "") {
-				token = request.URL.Query().Get("X-Token")
+			requestID := request.Header.Get("X-Request-Id")
+			authToken := request.Header.Get("Authorization")
+			xToken := request.Header.Get("X-Token")
+			tenantID := request.Header.Get("X-Tenant-Id")
+
+			// 如果 Authorization 和 X-Token 都为空，尝试从 URL 查询参数获取 X-Token
+			if authToken == "" && xToken == "" {
+				xToken = request.URL.Query().Get("X-Token")
 			}
-			if strings.EqualFold(tenantId, "") {
-				tenantId = request.URL.Query().Get("X-Tenant-Id")
+
+			// 优先使用 Authorization，如果为空，则使用 X-Token
+			token := authToken
+			if authToken == "" {
+				token = xToken
 			}
+
+			// 如果 X-Tenant-Id 为空，尝试从 URL 查询参数获取
+			if tenantID == "" {
+				tenantID = request.URL.Query().Get("X-Tenant-Id")
+			}
+
+			// 更新请求头和上下文
 			request.Header.Set("Authorization", token)
 			ctx = context.WithValue(ctx, kithttp.ContextKeyRequestAuthorization, token)
-			ctx = context.WithValue(ctx, logging.TraceId, guid)
-			ctx = context.WithValue(ctx, middleware.ContextKeyPublicTenantId, tenantId)
+			ctx = context.WithValue(ctx, logging.TraceId, requestID)
+			ctx = context.WithValue(ctx, middleware.ContextKeyPublicTenantId, tenantID)
+			// 假设 channelId 已经在之前定义
 			ctx = context.WithValue(ctx, middleware.ContextKeyChannelId, channelId)
 			return ctx
 		}),
@@ -224,7 +242,7 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	authEms := []endpoint.Middleware{
 		middleware.AuditMiddleware(logger, store),
 		middleware.CheckTenantMiddleware(logger, store, tracer),
-		middleware.CheckAuthMiddleware(logger, rdb, tracer),
+		middleware.CheckAuthMiddleware(logger, tracer),
 	}
 	authEms = append(authEms, ems...)
 
@@ -248,6 +266,10 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	r.PathPrefix("/api/tools").Handler(http.StripPrefix("/api/tools", tools.MakeHTTPHandler(toolsSvc, authEms, opts)))
 	// Assistants模块
 	r.PathPrefix("/api/assistants").Handler(http.StripPrefix("/api/assistants", assistants.MakeHTTPHandler(assistantsSvc, authEms, opts)))
+	// 数据集样本模块
+	r.PathPrefix("/api/mgr/datasets").Handler(http.StripPrefix("/api/mgr/datasets", datasetdocument.MakeHTTPHandler(datasetDocumentSvc, authEms, opts)))
+	// 数据集标注模块
+	r.PathPrefix("/api/mgr/annotation/task").Handler(http.StripPrefix("/api/mgr/annotation/task", datasettask.MakeHTTPHandler(datasetTaskSvc, authEms, opts)))
 	// 对外metrics
 	r.Handle("/metrics", promhttp.Handler())
 	// 心跳检测
@@ -288,9 +310,9 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 		_ = level.Error(httpLogger).Log("transport", "HTTP", "httpListener.Close", "http", "err", e)
 		_ = apiSvc.Alarm().Push(ctx, "服务停止", fmt.Sprintf("msg: %s, err: %v", "服务它停了,是不是挂了...", e), "service_start", alarm.LevelInfo, 1)
 		_ = level.Debug(logger).Log("db", "close", "err", db.Close())
-		if rdb != nil {
-			_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())
-		}
+		//if rdb != nil {
+		//	_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())
+		//}
 		os.Exit(1)
 	})
 }

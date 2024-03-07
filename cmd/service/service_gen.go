@@ -43,9 +43,6 @@ aigc-admin generate table all
 			// 关闭资源连接
 			defer func() {
 				_ = level.Debug(logger).Log("db", "close", "err", db.Close())
-				if rdb != nil {
-					_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())
-				}
 			}()
 
 			if len(args) > 0 && args[0] == "all" {
@@ -115,6 +112,10 @@ func generateTable() (err error) {
 	_ = logger.Log("migrate", "table", "SysDict", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.SysDict{}))
 	_ = logger.Log("migrate", "table", "ModelDeploy", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ModelDeploy{}))
 	_ = logger.Log("migrate", "table", "LLMEvalResults", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.LLMEvalResults{}))
+	_ = logger.Log("migrate", "table", "DatasetDocument", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.DatasetDocument{}))
+	_ = logger.Log("migrate", "table", "DatasetDocumentSegment", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.DatasetDocumentSegment{}))
+	_ = logger.Log("migrate", "table", "DatasetAnnotationTask", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.DatasetAnnotationTask{}))
+	_ = logger.Log("migrate", "table", "DatasetAnnotationTaskSegment", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.DatasetAnnotationTaskSegment{}))
 	//err = initData()
 	//if err != nil {
 	//	return err

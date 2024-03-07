@@ -6,6 +6,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/auth"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/channel"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/datasets"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/datasettask"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/finetuning"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/llmeval"
@@ -45,21 +46,28 @@ type Repository interface {
 	LLMEval() llmeval.Service
 	// Tenants 租户模块
 	Tenants() tenant.Service
+	// DatasetTask 数据集任务模块
+	DatasetTask() datasettask.Service
 }
 
 type repository struct {
-	chatSvc       chat.Service
-	channelSvc    channel.Service
-	modelSvc      model.Service
-	authSvc       auth.Service
-	filesSvc      files.Service
-	fineTuningSvc finetuning.Service
-	sysSvc        sys.Service
-	datasetSvc    datasets.Service
-	toolsSvc      tools.Service
-	assistantsSvc assistants.Service
-	llmEvalSvc    llmeval.Service
-	tenantSvc     tenant.Service
+	chatSvc        chat.Service
+	channelSvc     channel.Service
+	modelSvc       model.Service
+	authSvc        auth.Service
+	filesSvc       files.Service
+	fineTuningSvc  finetuning.Service
+	sysSvc         sys.Service
+	datasetSvc     datasets.Service
+	toolsSvc       tools.Service
+	assistantsSvc  assistants.Service
+	llmEvalSvc     llmeval.Service
+	tenantSvc      tenant.Service
+	datasetTaskSvc datasettask.Service
+}
+
+func (r *repository) DatasetTask() datasettask.Service {
+	return r.datasetTaskSvc
 }
 
 func (r *repository) Tenants() tenant.Service {
@@ -125,6 +133,7 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 	assistantsSvc := assistants.New(db)
 	llmEvalSvc := llmeval.New(db)
 	tenantSvc := tenant.New(db)
+	datasetTaskSvc := datasettask.New(db)
 
 	if logger != nil {
 		chatSvc = chat.NewLogging(logger, traceId)(chatSvc)
@@ -155,17 +164,18 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 	}
 
 	return &repository{
-		chatSvc:       chatSvc,
-		channelSvc:    channelSvc,
-		modelSvc:      modelSvc,
-		authSvc:       authSvc,
-		filesSvc:      filesSvc,
-		fineTuningSvc: fineTuningSvc,
-		sysSvc:        sysSvc,
-		datasetSvc:    datasetSvc,
-		toolsSvc:      toolsSvc,
-		assistantsSvc: assistantsSvc,
-		llmEvalSvc:    llmEvalSvc,
-		tenantSvc:     tenantSvc,
+		chatSvc:        chatSvc,
+		channelSvc:     channelSvc,
+		modelSvc:       modelSvc,
+		authSvc:        authSvc,
+		filesSvc:       filesSvc,
+		fineTuningSvc:  fineTuningSvc,
+		sysSvc:         sysSvc,
+		datasetSvc:     datasetSvc,
+		toolsSvc:       toolsSvc,
+		assistantsSvc:  assistantsSvc,
+		llmEvalSvc:     llmEvalSvc,
+		tenantSvc:      tenantSvc,
+		datasetTaskSvc: datasetTaskSvc,
 	}
 }

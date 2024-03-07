@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
-	"github.com/go-redis/redis/v8"
 	"net/url"
 	"regexp"
 	"strings"
@@ -35,7 +34,7 @@ const (
 )
 
 // CheckAuthMiddleware 验证用户登录信息，并将信息定入上下文
-func CheckAuthMiddleware(logger log.Logger, rdb redis.UniversalClient, tracer opentracing.Tracer) endpoint.Middleware {
+func CheckAuthMiddleware(logger log.Logger, tracer opentracing.Tracer) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 			//email, ok := ctx.Value(ContextKeyUserEmail).(string)

@@ -17,13 +17,6 @@ services:
       - "3306:3306"
     volumes:
       - ./.cache/mysql:/var/lib/mysql
-  redis:
-    image: redis:6.2
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - ./.cache/redis:/data
   aigc-admin:
     image: dudulu/aigc-admin:0.0.0-pre-0206
     restart: always

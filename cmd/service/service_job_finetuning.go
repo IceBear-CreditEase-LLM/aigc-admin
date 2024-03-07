@@ -36,7 +36,7 @@ aigc-admin job -h
 				LocalDataPath: serverStoragePath,
 				ServerUrl:     fmt.Sprintf("%s/storage", serverDomain),
 			})
-			fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, rdb, aigcDataCfsPath)
+			fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, aigcDataCfsPath)
 			return nil
 		},
 	}
