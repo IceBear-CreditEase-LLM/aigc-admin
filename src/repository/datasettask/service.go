@@ -15,7 +15,7 @@ type Service interface {
 	// CreateTask creates a new task.
 	CreateTask(ctx context.Context, data *types.DatasetAnnotationTask) (err error)
 	// ListTasks returns all tasks.
-	ListTasks(ctx context.Context, tenantId uint, name string, page, pageSize int) (res []types.DatasetAnnotationTask, total int64, err error)
+	ListTasks(ctx context.Context, tenantId uint, name string, page, pageSize int, preloads ...string) (res []types.DatasetAnnotationTask, total int64, err error)
 	// DeleteTask deletes a task.
 	DeleteTask(ctx context.Context, tenantId uint, uuid string) (err error)
 	// UpdateTask updates a task.
@@ -31,7 +31,7 @@ type Service interface {
 	// UpdateTaskSegment 更新任务样本
 	UpdateTaskSegment(ctx context.Context, data *types.DatasetAnnotationTaskSegment) (err error)
 	// GetTaskSegments 获取任务样本
-	GetTaskSegments(ctx context.Context, tenantId uint, taskId uint, status types.DatasetAnnotationStatus, page, pageSize int, preload ...string) (res []types.DatasetAnnotationTaskSegment, total int64, err error)
+	GetTaskSegments(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus, page, pageSize int, preload ...string) (res []types.DatasetAnnotationTaskSegment, total int64, err error)
 	// GetTaskSegmentByRand 获取任务样本
 	GetTaskSegmentByRand(ctx context.Context, taskId uint, testPercent float64, status types.DatasetAnnotationStatus, segmentType types.DatasetAnnotationSegmentType, preload ...string) (res []types.DatasetAnnotationTaskSegment, err error)
 	// UpdateTaskSegmentType 更新任务样本类型
@@ -123,8 +123,11 @@ func (s *service) GetDatasetDocumentByUUID(ctx context.Context, tenantId uint, u
 	return
 }
 
-func (s *service) ListTasks(ctx context.Context, tenantId uint, name string, page, pageSize int) (res []types.DatasetAnnotationTask, total int64, err error) {
+func (s *service) ListTasks(ctx context.Context, tenantId uint, name string, page, pageSize int, preloads ...string) (res []types.DatasetAnnotationTask, total int64, err error) {
 	query := s.db.WithContext(ctx).Model(types.DatasetAnnotationTask{}).Where("tenant_id = ?", tenantId)
+	for _, p := range preloads {
+		query = query.Preload(p)
+	}
 	if name != "" {
 		query = query.Where("name like ?", "%"+name+"%")
 	}
@@ -173,9 +176,14 @@ func (s *service) UpdateTaskSegment(ctx context.Context, data *types.DatasetAnno
 	return s.db.WithContext(ctx).Model(data).Updates(data).Error
 }
 
-func (s *service) GetTaskSegments(ctx context.Context, tenantId uint, taskId uint, status types.DatasetAnnotationStatus, page, pageSize int, preload ...string) (res []types.DatasetAnnotationTaskSegment, total int64, err error) {
-	//TODO implement me
-	panic("implement me")
+func (s *service) GetTaskSegments(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus, page, pageSize int, preload ...string) (res []types.DatasetAnnotationTaskSegment, total int64, err error) {
+	query := s.db.WithContext(ctx).Model(types.DatasetAnnotationTaskSegment{}).
+		Where("data_annotation_id = ? and status = ?", taskId, status)
+	for _, p := range preload {
+		query = query.Preload(p)
+	}
+	err = query.Count(&total).Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&res).Error
+	return
 }
 
 func (s *service) UpdateTaskSegmentType(ctx context.Context, segmentIds []uint, segmentType types.DatasetAnnotationSegmentType) (err error) {

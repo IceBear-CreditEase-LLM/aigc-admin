@@ -48,7 +48,7 @@ type ModelDeploy struct {
 	ModelID     uint   `gorm:"column:model_id;type:bigint(20) unsigned;NOT NULL"` // 模型表主键 models.id
 	ModelPath   string `gorm:"column:model_path;type:varchar(255);NOT NULL"`      // 模型部署路径
 	Status      string `gorm:"column:status;type:varchar(32)"`                    // 部署状态
-	PaasJobName string `gorm:"column:paas_job_name;type:varchar(255)"`            // paas job name
+	RuntimeName string `gorm:"column:runtime_name;type:varchar(255)"`             // paas job name
 }
 
 func (m *ModelDeploy) TableName() string {

@@ -6,8 +6,8 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/ldapcli"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/fastchat"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/ldapcli"
 	"github.com/sashabaranov/go-openai"
 	"net"
 	"net/http"
@@ -28,7 +28,6 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 	gormopentracing "gorm.io/plugin/opentracing"
 
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/logging"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
@@ -116,6 +115,12 @@ const (
 	EnvNameServerStoragePath       = "AIGC_ADMIN_SERVER_STORAGE_PATH"
 	EnvNameServerDomain            = "AIGC_ADMIN_SERVER_DOMAIN"
 
+	// [datasets]
+	EnvNameDatasetsImage     = "AIGC_DATASETS_IMAGE"
+	EnvNameDatasetsDir       = "AIGC_DATASETS_DIR"
+	EnvNameDatasetsModelName = "AIGC_DATASETS_MODEL_NAME"
+	EnvNameDatasetsDevice    = "AIGC_DATASETS_DEVICE"
+
 	// [cronjob]
 	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
 
@@ -182,6 +187,12 @@ const (
 	DefaultServiceS3BucketPublic = "aigc"
 	DefaultServiceS3Region       = "default"
 	DefaultServiceS3Cluster      = "ceph-c2"
+
+	// [datasets]
+	DefaultDatasetsImage     = "aigc/datasets:latest"
+	DefaultDatasetsDir       = "./datasets"
+	DefaultDatasetsModelName = ""
+	DefaultDatasetsDevice    = "mps"
 )
 
 var (
@@ -208,7 +219,7 @@ var (
 
 var (
 	//rdb    redis.UniversalClient
-	apiSvc api.Service
+	apiSvc services.Service
 	//hashId   hashids.HashIds
 	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                            string
 	mysqlPort, redisDb, ormPort                                                                            int
@@ -251,6 +262,9 @@ var (
 
 	// [cronjob]
 	cronJobAuto bool
+
+	// datasets
+	datasetsImage, datasetsDir, datasetsModelName, datasetsDevice string
 
 	goOS                                     = runtime.GOOS
 	goArch                                   = runtime.GOARCH
@@ -350,6 +364,12 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&ldapUserFilter, "ldap.user.filter", DefaultLdapUserFilter, "LDAP User Filter")
 	rootCmd.PersistentFlags().StringVar(&ldapGroupFilter, "ldap.group.filter", DefaultLdapGroupFilter, "LDAP Group Filter")
 	rootCmd.PersistentFlags().StringSliceVar(&ldapUserAttr, "ldap.user.attr", []string{"name", "mail", "userPrincipalName", "displayName", "sAMAccountName"}, "LDAP Attributes")
+
+	// [dataset]
+	startCmd.PersistentFlags().StringVar(&datasetsImage, "datasets.image", DefaultDatasetsImage, "datasets image")
+	startCmd.PersistentFlags().StringVar(&datasetsDir, "datasets.dir", DefaultDatasetsDir, "datasets dir")
+	startCmd.PersistentFlags().StringVar(&datasetsModelName, "datasets.model.name", DefaultDatasetsModelName, "datasets model name")
+	startCmd.PersistentFlags().StringVar(&datasetsDevice, "datasets.device", DefaultDatasetsDevice, "datasets device")
 
 	cronJobStartCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 
@@ -480,7 +500,7 @@ func prepare(ctx context.Context) error {
 	// 实例化仓库
 	store = repository.New(gormDB, logger, traceId, tracer)
 
-	apiSvc = api.NewApi(ctx, logger, traceId, serverDebug, tracer, &api.Config{
+	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
 		FastChat: fastchat.Config{
 			OpenAiEndpoint:  serviceOpenAiHost,

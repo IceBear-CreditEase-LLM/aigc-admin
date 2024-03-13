@@ -22,6 +22,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"os/signal"
 	"strconv"
@@ -30,10 +31,10 @@ import (
 
 	"github.com/go-kit/kit/tracing/opentracing"
 
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/alarm"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/logging"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/middleware"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/alarm"
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
@@ -135,7 +136,12 @@ func start(ctx context.Context) (err error) {
 		openai.WithBaseURL(serviceLocalAiHost),
 	})
 	datasetDocumentSvc = datasetdocument.Nes(traceId, logger, store)
-	datasetTaskSvc = datasettask.New(traceId, logger, store)
+	datasetTaskSvc = datasettask.New(traceId, logger, store,
+		datasettask.WithDatasetImage(datasetsImage),
+		datasettask.WithDatasetModel(datasetsModelName),
+		datasettask.WithDatasetDrive(datasetsDevice),
+		datasettask.WithCallbackHost(serverDomain),
+	)
 
 	if logger != nil {
 		authSvc = auth.NewLogging(logger, logging.TraceId)(authSvc)
@@ -146,6 +152,8 @@ func start(ctx context.Context) (err error) {
 		sysSvc = sys.NewLogging(logger, logging.TraceId)(sysSvc)
 		datasetSvc = datasets.NewLogging(logger, logging.TraceId)(datasetSvc)
 		toolsSvc = tools.NewLogging(logger, logging.TraceId)(toolsSvc)
+		datasetDocumentSvc = datasetdocument.NewLogging(logger, logging.TraceId)(datasetDocumentSvc)
+		datasetTaskSvc = datasettask.NewLogging(logger, logging.TraceId)(datasetTaskSvc)
 	}
 
 	if tracer != nil {
@@ -156,7 +164,9 @@ func start(ctx context.Context) (err error) {
 		fineTuningSvc = finetuning.NewTracing(tracer)(fineTuningSvc)
 		sysSvc = sys.NewTracing(tracer)(sysSvc)
 		datasetSvc = datasets.NewTracing(tracer)(datasetSvc)
+		datasetDocumentSvc = datasetdocument.NewTracing(tracer)(datasetDocumentSvc)
 		toolsSvc = tools.NewTracing(tracer)(toolsSvc)
+		datasetTaskSvc = datasettask.NewTracing(tracer)(datasetTaskSvc)
 	}
 
 	g := &group.Group{}
@@ -232,6 +242,14 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 				opentracing.HTTPToContext(tracer, "HTTPToContext", logger),
 				middleware.TracingServerBefore(tracer),
 			))
+	}
+
+	if serverDebug {
+		opts = append(opts, kithttp.ServerBefore(func(ctx context.Context, request *http.Request) context.Context {
+			dump, _ := httputil.DumpRequest(request, true)
+			fmt.Println(string(dump))
+			return ctx
+		}))
 	}
 
 	ems := []endpoint.Middleware{

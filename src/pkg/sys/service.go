@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/sys"
@@ -45,7 +44,7 @@ type service struct {
 	logger  log.Logger
 	traceId string
 	store   repository.Repository
-	apiSvc  api.Service
+	apiSvc  services.Service
 }
 
 func (s *service) TemplateList(ctx context.Context, page, pageSize int, name, templateType string) (res []templateListResult, total int64, err error) {
@@ -367,7 +366,7 @@ func (s *service) DeleteDict(ctx context.Context, id uint) (err error) {
 	return
 }
 
-func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc api.Service) Service {
+func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service) Service {
 	return &service{
 		logger:  log.With(logger, "service", "models"),
 		traceId: traceId,

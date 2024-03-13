@@ -159,14 +159,14 @@ func TestService_Embeddings(t *testing.T) {
 func TestService_UploadFile(t *testing.T) {
 	ctx := context.Background()
 	svc := initSvc()
-	res, err := svc.UploadFile(ctx, "gpt-3.5-turbo", "ft.jsonl", "github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat/ft.jsonl", "fine-tune")
+	res, err := svc.UploadFile(ctx, "gpt-3.5-turbo", "ft.jsonl", "github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/fastchat/ft.jsonl", "fine-tune")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	b, _ := json.Marshal(res)
 	t.Log(string(b))
-	// {"bytes":157495,"created_at":1693386923,"id":"file-CYLNxI7ppCkKDiGxCpL5X5zq","filename":"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat/ft.jsonl","object":"file","owner":"","purpose":"fine-tune"}
+	// {"bytes":157495,"created_at":1693386923,"id":"file-CYLNxI7ppCkKDiGxCpL5X5zq","filename":"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/fastchat/ft.jsonl","object":"file","owner":"","purpose":"fine-tune"}
 }
 
 func TestService_CreateFineTuningJob(t *testing.T) {

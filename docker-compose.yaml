@@ -34,19 +34,3 @@ services:
       - :8080
     depends_on:
       - mysql
-      - redis
-  aigc-admin-cronjob:
-    image: dudulu/aigc-admin:0.0.0-pre-0206
-    restart: always
-    build:
-      context: .
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    command:
-      - aigc-admin
-      - cronjob
-      - start
-    depends_on:
-      - mysql
-      - redis

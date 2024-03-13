@@ -3,13 +3,13 @@ package models
 import (
 	"context"
 	"fmt"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/dockerapi"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/middleware"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/model"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/runtime"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -19,7 +19,6 @@ import (
 	"gorm.io/gorm/utils"
 	"math/rand"
 	"net"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -58,7 +57,7 @@ type service struct {
 	logger          log.Logger
 	traceId         string
 	store           repository.Repository
-	apiSvc          api.Service
+	apiSvc          services.Service
 	aigcDataCfsPath string
 }
 
@@ -75,9 +74,9 @@ func (s *service) SyncDeployStatus(ctx context.Context, modelId string) (err err
 		return err
 	}
 
-	status, err := s.apiSvc.DockerApi().Status(ctx, m.ModelDeploy.PaasJobName)
+	status, err := s.apiSvc.Runtime().GetDeploymentStatus(ctx, m.ModelDeploy.RuntimeName)
 	if err != nil {
-		err = errors.Wrap(err, "dockerapi status")
+		err = errors.Wrap(err, "get deployment status")
 		return
 	}
 	var mStatus types.ModelDeployStatus
@@ -242,9 +241,9 @@ func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 		return encode.Invalid.Wrap(errors.Errorf("public model not need undeploy, model:%s", channelModel.ModelName))
 	}
 
-	err = s.apiSvc.DockerApi().Remove(ctx, channelModel.ModelDeploy.PaasJobName)
+	err = s.apiSvc.Runtime().RemoveDeployment(ctx, channelModel.ModelDeploy.RuntimeName)
 	if err != nil {
-		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error(), "modelName", channelModel.ModelName)
+		_ = level.Error(logger).Log("api.Runtime", "Remove", "err", err.Error(), "modelName", channelModel.ModelName)
 		err = errors.Wrap(err, "dockerapi remove")
 		return
 	}
@@ -326,11 +325,9 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 	serviceName := strings.ReplaceAll(strings.ReplaceAll(channelModel.ModelName, "::", "-"), ":", "-")
 	serviceName = strings.ReplaceAll(serviceName, ".", "-")
 	var modelPath = fmt.Sprintf("/data/base-model/%s", serviceName)
-	var subPath = "base-model"
 	// 判断是否是微调模型
 	if channelModel.IsFineTuning {
 		modelPath = fmt.Sprintf("/data/ft-model/%s", serviceName)
-		subPath = "ft-model"
 		trainJobInfo, err := s.store.FineTuning().FindFineTunedModel(ctx, channelModel.ModelName)
 		if err != nil {
 			_ = level.Warn(logger).Log("msg", "find fine tuning job failed", "err", err.Error())
@@ -350,18 +347,27 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 	if inferenceTemplate.TrainImage == "" {
 		inferenceTemplate.TrainImage = "nginx"
 	}
-	var quantization string
-	if req.Quantization == QuantizationType8Bit {
-		quantization = "--load-8bit"
-	}
-
-	var modelWorker = "fastchat.serve.model_worker"
-	if req.Vllm {
-		// tokenizer 需要提前在镜像预置好
-		modelWorker = "fastchat.serve.vllm_worker"
-	}
 
 	var port = 8080
+
+	template, err := util.EncodeTemplate("start.sh", inferenceTemplate.Content, map[string]interface{}{
+		"modelName":    channelModel.ModelName,
+		"modelPath":    modelPath,
+		"port":         port,
+		"quantization": req.Quantization,
+		"numGpus":      req.Gpu,
+		"maxGpuMemory": req.MaxGpuMemory,
+		"vllm":         req.Vllm,
+		"cpu":          req.Cpu,
+		"inferredType": req.InferredType,
+		"Cluster":      req.Cluster,
+	})
+	if err != nil {
+		err = errors.Wrap(err, "encode template failed")
+		_ = level.Error(logger).Log("msg", "encode template failed", "err", err.Error())
+		return err
+	}
+
 	var randomPort = 0
 	rand.Seed(time.Now().UnixNano())
 
@@ -383,29 +389,28 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 		return
 	}
 
-	req.Gpu = 0
-
 	// 生成部署命令
-	startShell := fmt.Sprintf(`python3.10 -m %s --host 0.0.0.0 --port %d \
---controller-address %s --worker-address http://$MY_POD_IP:%d --model-name %s \
---model-path %s %s --num-gpus %d`, modelWorker, port, "http://fschat-controller.paas.paas.idc", randomPort,
-		channelModel.ModelName, modelPath, quantization, req.Gpu)
-
-	cid, err := s.apiSvc.DockerApi().Create(ctx, serviceName, dockerapi.Config{
-		Image: inferenceTemplate.TrainImage,
-		//Command: []string{"/bin/sh", "-c", "/app/start.sh"},
-		Ports: map[string]string{strconv.Itoa(randomPort): strconv.Itoa(port)},
-		Volumes: []dockerapi.Volume{{
-			Key:   "start.sh",
-			Value: "/app/start.sh",
-		}, {
-			Key:   filepath.Join(s.aigcDataCfsPath, subPath),
-			Value: "/data/" + subPath,
-		}},
-		GPU: req.Gpu,
-		ConfigData: map[string]string{
-			"start.sh": startShell,
+	cid, err := s.apiSvc.Runtime().CreateDeployment(ctx, runtime.Config{
+		ServiceName: serviceName,
+		Image:       inferenceTemplate.TrainImage,
+		Command:     []string{"/bin/sh", "-c", "/app/start-worker.sh"},
+		EnvVars:     nil,
+		Volumes: []runtime.Volume{
+			{
+				Key:   "start.sh",
+				Value: "/app/start-worker.sh",
+			}, {
+				Key:   s.aigcDataCfsPath,
+				Value: "/data/",
+			},
 		},
+		GpuTolerationValue: "",
+		Ports:              map[string]string{strconv.Itoa(randomPort): strconv.Itoa(port)},
+		GPU:                req.Gpu,
+		ConfigData: map[string]string{
+			"start.sh": template,
+		},
+		Replicas: int32(req.Replicas),
 	})
 
 	if err != nil {
@@ -418,7 +423,7 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 		ModelID:     channelModel.ID,
 		ModelPath:   modelPath,
 		Status:      types.ModelDeployStatusPending.String(),
-		PaasJobName: cid,
+		RuntimeName: cid,
 	}); err != nil {
 		_ = level.Error(logger).Log("msg", "create channel model deploy failed", "err", err.Error())
 		err = errors.Wrap(err, "create channel model deploy failed")
@@ -621,7 +626,7 @@ func providerName(m string) types.ModelProvider {
 	return types.ModelProviderLocalAI
 }
 
-func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc api.Service, aigcDataCfsPath string) Service {
+func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service, aigcDataCfsPath string) Service {
 	return &service{
 		logger:          log.With(logger, "service", "models"),
 		traceId:         traceId,

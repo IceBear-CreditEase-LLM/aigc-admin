@@ -6,7 +6,6 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
@@ -37,7 +36,7 @@ type service struct {
 	logger                   log.Logger
 	traceId                  string
 	store                    repository.Repository
-	apiSvc                   api.Service
+	apiSvc                   services.Service
 	localDataPath, serverUrl string
 	localDataFS              embed.FS
 	Config
@@ -240,7 +239,7 @@ type Config struct {
 	ServerUrl     string
 }
 
-func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc api.Service, cfg Config) Service {
+func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service, cfg Config) Service {
 	_ = log.With(logger, "pkg.files", "service")
 	return &service{
 		logger:        logger,

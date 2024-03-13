@@ -3,6 +3,7 @@ package datasettask
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/helpers/page"
 	"github.com/go-kit/kit/endpoint"
@@ -10,6 +11,8 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"net/http"
+	"os"
+	"path"
 	"strings"
 )
 
@@ -68,6 +71,22 @@ func MakeHTTPHandler(s Service, mdw []endpoint.Middleware, opts []kithttp.Server
 		eps.SplitAnnotationDataSegmentEndpoint,
 		decodeTaskSplitRequest,
 		encode.JsonResponse, kitopts...)).Methods(http.MethodPost)
+	r.Handle("/{datasetTaskId}/segment/{datasetTaskSegmentId}/abandoned", kithttp.NewServer(
+		eps.AbandonTaskSegmentEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse, kitopts...)).Methods(http.MethodPut)
+	r.Handle("/{datasetTaskId}/export", kithttp.NewServer(
+		eps.ExportAnnotationDataEndpoint,
+		decodeTaskExportRequest,
+		encodeExportResponse, kitopts...)).Methods(http.MethodGet)
+	r.Handle("/{datasetTaskId}/detect/finish", kithttp.NewServer(
+		eps.TaskDetectFinishEndpoint,
+		decodeTaskDetectFinishRequest,
+		encode.JsonResponse, kitopts...)).Methods(http.MethodPut)
+	r.Handle("/{datasetTaskId}/info", kithttp.NewServer(
+		eps.TaskInfoEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse, kitopts...)).Methods(http.MethodGet)
 	return r
 }
 
@@ -114,5 +133,40 @@ func decodeTaskSplitRequest(ctx context.Context, r *http.Request) (interface{}, 
 		return nil, encode.InvalidParams.Wrap(err)
 	}
 
+	return req, nil
+}
+
+func decodeTaskExportRequest(ctx context.Context, r *http.Request) (interface{}, error) {
+	var req taskExportAnnotationDataRequest
+	req.FormatType = r.URL.Query().Get("formatType")
+	if req.FormatType == "" {
+		req.FormatType = "default"
+	}
+
+	return req, nil
+}
+
+func encodeExportResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
+	resp := response.(encode.Response)
+	if resp.Error != nil {
+		encode.JsonError(ctx, resp.Error, w)
+		return nil
+	}
+	filePath := resp.Data.(string)
+	body, _ := os.ReadFile(filePath)
+	defer func() {
+		_ = os.Remove(filePath)
+	}()
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", path.Base(filePath)))
+	_, err := w.Write(body)
+	return err
+}
+
+func decodeTaskDetectFinishRequest(ctx context.Context, r *http.Request) (interface{}, error) {
+	var req taskDetectFinishRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, encode.InvalidParams.Wrap(err)
+	}
 	return req, nil
 }

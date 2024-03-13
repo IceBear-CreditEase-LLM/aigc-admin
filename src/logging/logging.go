@@ -18,9 +18,8 @@ import (
 	"github.com/lestrrat-go/file-rotatelogs"
 	gormlogger "gorm.io/gorm/logger"
 
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/alarm"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/alarm"
 )
 
 const (
@@ -30,7 +29,7 @@ const (
 // LogErrorHandler is a transport error handler implementation which logs an error.
 type LogErrorHandler struct {
 	logger kitlog.Logger
-	apiSvc api.Service
+	apiSvc services.Service
 }
 
 func (l *LogErrorHandler) Handle(ctx context.Context, err error) {
@@ -57,7 +56,7 @@ func (l *LogErrorHandler) Handle(ctx context.Context, err error) {
 	}
 }
 
-func NewLogErrorHandler(logger kitlog.Logger, apiSvc api.Service) transport.ErrorHandler {
+func NewLogErrorHandler(logger kitlog.Logger, apiSvc services.Service) transport.ErrorHandler {
 	return &LogErrorHandler{
 		logger: logger,
 		apiSvc: apiSvc,

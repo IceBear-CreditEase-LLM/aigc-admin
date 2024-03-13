@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
@@ -15,7 +14,7 @@ type deploymentStatusCronJob struct {
 	Name   string
 	ctx    context.Context
 	store  repository.Repository
-	apiSvc api.Service
+	apiSvc services.Service
 }
 
 func (s *deploymentStatusCronJob) Run() {

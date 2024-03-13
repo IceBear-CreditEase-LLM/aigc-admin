@@ -5,12 +5,11 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/fastchat"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/ldapcli"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/logging"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/fastchat"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/ldapcli"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -178,7 +177,7 @@ var (
 var (
 	//redisDb int
 	//redisAuth, redisHosts, redisPrefix string
-	apiSvc api.Service
+	apiSvc services.Service
 	//hashId   hashids.HashIds
 	dbDrive, mysqlHost, mysqlUser, mysqlPassword, mysqlDatabase                                        string
 	mysqlPort, ormPort                                                                                 int
@@ -294,7 +293,7 @@ func preRun() {
 
 }
 
-func Init() (apiSvc api.Service, err error) {
+func Init() (apiSvc services.Service, err error) {
 	preRun()
 	err = prepare(context.Background())
 	if err != nil {
@@ -407,7 +406,7 @@ func prepare(ctx context.Context) error {
 	Store = repository.New(gormDB, logger, logging.TraceId, nil)
 
 	// 实例化外部API
-	apiSvc = api.NewApi(ctx, logger, logging.TraceId, serverDebug, nil, &api.Config{
+	apiSvc = services.NewApi(ctx, logger, logging.TraceId, serverDebug, nil, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
 		FastChat: fastchat.Config{
 			OpenAiEndpoint: serviceOpenAiHost,

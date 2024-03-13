@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	authjwt "github.com/IceBear-CreditEase-LLM/aigc-admin/src/jwt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
@@ -41,7 +40,7 @@ type service struct {
 	traceId string
 	store   repository.Repository
 	//rdb     redis.UniversalClient
-	apiSvc api.Service
+	apiSvc services.Service
 }
 
 func (s *service) UpdateAccount(ctx context.Context, request UpdateAccountRequest) (err error) {
@@ -319,7 +318,7 @@ func convertAccount(data *types.Accounts) Account {
 func New(logger log.Logger, traceId string,
 	store repository.Repository,
 	//rdb redis.UniversalClient,
-	apiSvc api.Service) Service {
+	apiSvc services.Service) Service {
 	return &service{
 		logger:  logger,
 		traceId: traceId,

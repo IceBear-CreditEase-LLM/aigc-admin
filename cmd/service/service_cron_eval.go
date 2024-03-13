@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
@@ -24,7 +23,7 @@ type llmWaitingEvalCronJob struct {
 	Name     string
 	ctx      context.Context
 	store    repository.Repository
-	apiSvc   api.Service
+	apiSvc   services.Service
 	running  bool
 	filesSvc files.Service
 }

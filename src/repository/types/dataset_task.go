@@ -11,6 +11,9 @@ type DatasetAnnotationType string
 // DatasetAnnotationStatus is a string enum type
 type DatasetAnnotationStatus string
 
+// DatasetAnnotationDetectionStatus is a string enum type
+type DatasetAnnotationDetectionStatus string
+
 // DatasetAnnotationSegmentType is a string enum type
 type DatasetAnnotationSegmentType string
 
@@ -37,6 +40,13 @@ const (
 	DatasetAnnotationSegmentTypeTrain DatasetAnnotationSegmentType = "train"
 	// DatasetAnnotationSegmentTypeTest 测试集
 	DatasetAnnotationSegmentTypeTest DatasetAnnotationSegmentType = "test"
+
+	// DatasetAnnotationDetectionStatusPending 等待中
+	DatasetAnnotationDetectionStatusPending DatasetAnnotationDetectionStatus = "pending"
+	// DatasetAnnotationDetectionStatusProcessing 处理中
+	DatasetAnnotationDetectionStatusProcessing DatasetAnnotationDetectionStatus = "processing"
+	// DatasetAnnotationDetectionStatusCompleted 已完成
+	DatasetAnnotationDetectionStatusCompleted DatasetAnnotationDetectionStatus = "completed"
 )
 
 // DatasetAnnotationTaskSegment is a struct type
@@ -45,7 +55,7 @@ type DatasetAnnotationTaskSegment struct {
 	UUID             string                       `gorm:"column:uuid;type:string;size:64;uniqueIndex;not null;comment:样本ID"`
 	DataAnnotationID uint                         `gorm:"column:data_annotation_id;index;comment:标注任务ID"`
 	SegmentID        uint                         `gorm:"column:segment_id;type:int;index;comment:样本ID"`
-	AnnotationType   string                       `gorm:"column:annotation_type;type:varchar(12);index;comment:标注类型"`
+	AnnotationType   DatasetAnnotationType        `gorm:"column:annotation_type;type:varchar(12);index;comment:标注类型"`
 	SegmentContent   string                       `gorm:"column:segment_content;type:text;comment:样本内容"`
 	Document         string                       `gorm:"column:document;size:2000;null;comment:标注文本"`
 	Instruction      string                       `gorm:"column:instruction;size:2000;null;comment:标注说明"`
@@ -63,24 +73,27 @@ type DatasetAnnotationTaskSegment struct {
 // DatasetAnnotationTask is a struct type
 type DatasetAnnotationTask struct {
 	gorm.Model
-	DatasetDocumentId uint                    `gorm:"column:dataset_document_id;type:int;index;comment:数据集ID"`
-	UUID              string                  `gorm:"column:uuid;type:string;size:64;uniqueIndex;comment:标注任务ID"`
-	Name              string                  `gorm:"column:name;type:string;size:64;index;comment:任务名称"`
-	TenantID          uint                    `gorm:"column:tenant_id;index;comment:租户ID"`
-	Principal         string                  `gorm:"column:principal;size:32;index;comment:负责人"`
-	AnnotationType    string                  `gorm:"column:annotation_type;size:12;index;comment:标注类型"`
-	Status            DatasetAnnotationStatus `gorm:"column:status;size:12;index;default:pending;comment:标注状态"`
-	CompletedAt       *time.Time              `gorm:"column:completed_at;null;comment:完成时间"`
-	DataSequence      string                  `gorm:"column:data_sequence;size:12;comment:数据序列"`
-	Total             int                     `gorm:"column:total;type:int;default:0;comment:需要标的数据总量"`
-	Completed         int                     `gorm:"column:completed;default:0;comment:完成标注量"`
-	Abandoned         int                     `gorm:"column:abandoned;default:0;comment:废弃标注量"`
-	TrainTotal        int                     `gorm:"column:train_total;default:0;comment:训练数据总量"`
-	TestTotal         int                     `gorm:"column:test_total;default:0;comment:测试数据总量"`
-	Remark            string                  `gorm:"column:remark;size:1000;comment:备注"`
-	TestReport        string                  `gorm:"column:test_report;type:text;comment:测试数据仓库"`
+	DatasetDocumentId uint                             `gorm:"column:dataset_document_id;type:int;index;comment:数据集ID"`
+	UUID              string                           `gorm:"column:uuid;type:string;size:64;uniqueIndex;comment:标注任务ID"`
+	Name              string                           `gorm:"column:name;type:string;size:64;index;comment:任务名称"`
+	TenantID          uint                             `gorm:"column:tenant_id;index;comment:租户ID"`
+	Principal         string                           `gorm:"column:principal;size:32;index;comment:负责人"`
+	AnnotationType    string                           `gorm:"column:annotation_type;size:12;index;comment:标注类型"`
+	Status            DatasetAnnotationStatus          `gorm:"column:status;size:12;index;default:pending;comment:标注状态"`
+	CompletedAt       *time.Time                       `gorm:"column:completed_at;null;comment:完成时间"`
+	DataSequence      string                           `gorm:"column:data_sequence;size:12;comment:数据序列"`
+	Total             int                              `gorm:"column:total;type:int;default:0;comment:需要标的数据总量"`
+	Completed         int                              `gorm:"column:completed;default:0;comment:完成标注量"`
+	Abandoned         int                              `gorm:"column:abandoned;default:0;comment:废弃标注量"`
+	TrainTotal        int                              `gorm:"column:train_total;default:0;comment:训练数据总量"`
+	TestTotal         int                              `gorm:"column:test_total;default:0;comment:测试数据总量"`
+	Remark            string                           `gorm:"column:remark;size:1000;comment:备注"`
+	TestReport        string                           `gorm:"column:test_report;type:text;comment:测试数据仓库"`
+	JobName           string                           `gorm:"column:job_name;size:64;null;comment:任务名称"`
+	DetectionStatus   DatasetAnnotationDetectionStatus `gorm:"column:detection_status;size:12;default:pending;comment:检测状态"`
+	Segments          []DatasetAnnotationTaskSegment   `gorm:"foreignKey:DataAnnotationID;references:ID"`
 
-	Segments []DatasetAnnotationTaskSegment `gorm:"foreignKey:DataAnnotationID;references:ID"`
+	DatasetDocument DatasetDocument `gorm:"foreignKey:DatasetDocumentId;references:ID"`
 }
 
 // DatasetDocument is a struct type

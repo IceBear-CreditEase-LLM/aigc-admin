@@ -5,14 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/alarm"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api/dockerapi"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/finetuning"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/alarm"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/dockerapi"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -65,7 +65,7 @@ type service struct {
 	traceId     string
 	logger      log.Logger
 	store       repository.Repository
-	api         api.Service
+	api         services.Service
 	namespace   string
 	dataCfsPath string
 	mu          sync.Mutex
@@ -259,8 +259,7 @@ func (s *service) _cancelJob(ctx context.Context, channelId uint, fineTuningJob 
 		_ = level.Error(logger).Log("repository.FineTuningJob", "FindFineTuningJobByJobId", "err", err.Error())
 		return
 	}
-
-	err = s.api.DockerApi().Remove(ctx, jobInfo.PaasJobName)
+	err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName)
 	if err != nil {
 		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
 		err = errors.Wrap(err, "api.DockerApi.Remove")
@@ -338,8 +337,7 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 	//	_ = level.Error(logger).Log("api.Paas", "DeleteConfigMap", "err", err.Error())
 	//	//_ = s.api.Alarm().Push(ctx, "微调任务删除configmap失败", fmt.Sprintf("微调任务删除configmap失败, serviceName: %s, err: %s", serviceName, err.Error()), "paas-chat-api", alarm.LevelWarning, 5)
 	//}
-
-	err = s.api.DockerApi().Remove(ctx, jobInfo.PaasJobName)
+	err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName)
 	if err != nil {
 		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
 		return err
@@ -769,7 +767,7 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	return fileUrl, nil
 }
 
-func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc api.Service, dataCfsPath string) Service {
+func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc services.Service, dataCfsPath string) Service {
 	return &service{
 		traceId:     traceId,
 		logger:      logger,

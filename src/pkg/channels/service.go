@@ -2,7 +2,6 @@ package channels
 
 import (
 	"context"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/api"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/channel"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/model"
@@ -31,7 +30,7 @@ type service struct {
 	logger  log.Logger
 	traceId string
 	store   repository.Repository
-	apiSvc  api.Service
+	apiSvc  services.Service
 }
 
 func (s *service) ChatCompletionStream(ctx context.Context, request ChatCompletionRequest) (stream <-chan CompletionsStreamResult, err error) {
@@ -269,7 +268,7 @@ func (s *service) DeleteChannel(ctx context.Context, id uint) (err error) {
 	return
 }
 
-func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc api.Service) Service {
+func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service) Service {
 	return &service{
 		logger:  log.With(logger, "service", "channels"),
 		traceId: traceId,
