@@ -11,6 +11,19 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) CancelCheckTaskDatasetSimilar(ctx context.Context, tenantId uint, taskId string) (err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "CancelCheckTaskDatasetSimilar", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.datasettask",
+	})
+	defer func() {
+		span.LogKV("tenantId", tenantId, "taskId", taskId, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.CancelCheckTaskDatasetSimilar(ctx, tenantId, taskId)
+}
+
 func (s *tracing) GetTaskInfo(ctx context.Context, tenantId uint, taskId string) (res taskDetail, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "GetTaskInfo", opentracing.Tag{
 		Key:   string(ext.Component),

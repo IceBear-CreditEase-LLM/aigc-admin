@@ -7,6 +7,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"

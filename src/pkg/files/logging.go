@@ -13,6 +13,18 @@ type logging struct {
 	traceId string
 }
 
+func (l *logging) UploadToStorage(ctx context.Context, file multipart.File, fileType string) (url string, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "UploadToStorage", "fileType", fileType,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.UploadToStorage(ctx, file, fileType)
+}
+
 func (l *logging) UploadLocal(ctx context.Context, file multipart.File, fileType string) (localFile string, err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(

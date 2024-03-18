@@ -69,6 +69,8 @@ type (
 		TestTotal int `json:"testTotal"`
 		// TestReport 检测报告
 		TestReport string `json:"testReport"`
+		// DetectionStatus 检测状态
+		DetectionStatus string `json:"detectionStatus"`
 	}
 
 	// taskSegmentDetail 任务样本详情返回结构
@@ -133,32 +135,36 @@ type (
 )
 
 type Endpoints struct {
-	CreateTaskEndpoint                 endpoint.Endpoint
-	ListTasksEndpoint                  endpoint.Endpoint
-	DeleteTaskEndpoint                 endpoint.Endpoint
-	GetTaskSegmentNextEndpoint         endpoint.Endpoint
-	CleanAnnotationTaskEndpoint        endpoint.Endpoint
-	AnnotationTaskSegmentEndpoint      endpoint.Endpoint
-	SplitAnnotationDataSegmentEndpoint endpoint.Endpoint
-	AbandonTaskSegmentEndpoint         endpoint.Endpoint
-	ExportAnnotationDataEndpoint       endpoint.Endpoint
-	TaskDetectFinishEndpoint           endpoint.Endpoint
-	TaskInfoEndpoint                   endpoint.Endpoint
+	CreateTaskEndpoint                    endpoint.Endpoint
+	ListTasksEndpoint                     endpoint.Endpoint
+	DeleteTaskEndpoint                    endpoint.Endpoint
+	GetTaskSegmentNextEndpoint            endpoint.Endpoint
+	CleanAnnotationTaskEndpoint           endpoint.Endpoint
+	AnnotationTaskSegmentEndpoint         endpoint.Endpoint
+	SplitAnnotationDataSegmentEndpoint    endpoint.Endpoint
+	AbandonTaskSegmentEndpoint            endpoint.Endpoint
+	ExportAnnotationDataEndpoint          endpoint.Endpoint
+	TaskDetectFinishEndpoint              endpoint.Endpoint
+	TaskInfoEndpoint                      endpoint.Endpoint
+	CancelCheckTaskDatasetSimilarEndpoint endpoint.Endpoint
+	AsyncCheckTaskDatasetSimilarEndpoint  endpoint.Endpoint
 }
 
 func NewEndpoints(s Service, mdw map[string][]endpoint.Middleware) Endpoints {
 	eps := Endpoints{
-		CreateTaskEndpoint:                 makeCreateTaskEndpoint(s),
-		ListTasksEndpoint:                  makeListTasksEndpoint(s),
-		DeleteTaskEndpoint:                 makeDeleteTaskEndpoint(s),
-		GetTaskSegmentNextEndpoint:         makeGetTaskSegmentNextEndpoint(s),
-		CleanAnnotationTaskEndpoint:        makeCleanAnnotationTaskEndpoint(s),
-		AnnotationTaskSegmentEndpoint:      makeAnnotationTaskSegmentEndpoint(s),
-		SplitAnnotationDataSegmentEndpoint: makeSplitAnnotationDataSegmentEndpoint(s),
-		AbandonTaskSegmentEndpoint:         makeAbandonTaskSegmentEndpoint(s),
-		ExportAnnotationDataEndpoint:       makeExportAnnotationDataEndpoint(s),
-		TaskDetectFinishEndpoint:           makeTaskDetectFinishEndpoint(s),
-		TaskInfoEndpoint:                   makeTaskInfoEndpoint(s),
+		CreateTaskEndpoint:                    makeCreateTaskEndpoint(s),
+		ListTasksEndpoint:                     makeListTasksEndpoint(s),
+		DeleteTaskEndpoint:                    makeDeleteTaskEndpoint(s),
+		GetTaskSegmentNextEndpoint:            makeGetTaskSegmentNextEndpoint(s),
+		CleanAnnotationTaskEndpoint:           makeCleanAnnotationTaskEndpoint(s),
+		AnnotationTaskSegmentEndpoint:         makeAnnotationTaskSegmentEndpoint(s),
+		SplitAnnotationDataSegmentEndpoint:    makeSplitAnnotationDataSegmentEndpoint(s),
+		AbandonTaskSegmentEndpoint:            makeAbandonTaskSegmentEndpoint(s),
+		ExportAnnotationDataEndpoint:          makeExportAnnotationDataEndpoint(s),
+		TaskDetectFinishEndpoint:              makeTaskDetectFinishEndpoint(s),
+		TaskInfoEndpoint:                      makeTaskInfoEndpoint(s),
+		CancelCheckTaskDatasetSimilarEndpoint: makeCancelCheckTaskDatasetSimilarEndpoint(s),
+		AsyncCheckTaskDatasetSimilarEndpoint:  makeAsyncCheckTaskDatasetSimilarEndpoint(s),
 	}
 
 	for _, m := range mdw["DatasetTask"] {
@@ -173,6 +179,8 @@ func NewEndpoints(s Service, mdw map[string][]endpoint.Middleware) Endpoints {
 		eps.ExportAnnotationDataEndpoint = m(eps.ExportAnnotationDataEndpoint)
 		eps.TaskDetectFinishEndpoint = m(eps.TaskDetectFinishEndpoint)
 		eps.TaskInfoEndpoint = m(eps.TaskInfoEndpoint)
+		eps.CancelCheckTaskDatasetSimilarEndpoint = m(eps.CancelCheckTaskDatasetSimilarEndpoint)
+		eps.AsyncCheckTaskDatasetSimilarEndpoint = m(eps.AsyncCheckTaskDatasetSimilarEndpoint)
 	}
 	return eps
 }
@@ -358,6 +366,36 @@ func makeTaskInfoEndpoint(s Service) endpoint.Endpoint {
 		res, err := s.GetTaskInfo(ctx, tenantId, taskId)
 		return encode.Response{
 			Data:  res,
+			Error: err,
+		}, err
+	}
+}
+
+func makeCancelCheckTaskDatasetSimilarEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		tenantId, _ := ctx.Value(middleware.ContextKeyTenantId).(uint)
+		taskId, ok := ctx.Value(contextKeyDatasetTaskId).(string)
+		if !ok {
+			err := errors.New("invalid task id")
+			return nil, err
+		}
+		err := s.CancelCheckTaskDatasetSimilar(ctx, tenantId, taskId)
+		return encode.Response{
+			Error: err,
+		}, err
+	}
+}
+
+func makeAsyncCheckTaskDatasetSimilarEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		tenantId, _ := ctx.Value(middleware.ContextKeyTenantId).(uint)
+		taskId, ok := ctx.Value(contextKeyDatasetTaskId).(string)
+		if !ok {
+			err := errors.New("invalid task id")
+			return nil, err
+		}
+		err := s.AsyncCheckTaskDatasetSimilar(ctx, tenantId, taskId)
+		return encode.Response{
 			Error: err,
 		}, err
 	}

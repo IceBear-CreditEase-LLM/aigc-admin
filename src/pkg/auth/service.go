@@ -7,6 +7,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/auth"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	jwt2 "github.com/golang-jwt/jwt/v4"

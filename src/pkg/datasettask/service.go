@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/middleware"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/runtime"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
@@ -40,6 +42,8 @@ type Service interface {
 	AbandonTaskSegment(ctx context.Context, tenantId uint, taskId, taskSegmentId string) (err error)
 	// AsyncCheckTaskDatasetSimilar 同步检查标注任务的数据集相似
 	AsyncCheckTaskDatasetSimilar(ctx context.Context, tenantId uint, taskId string) (err error)
+	// CancelCheckTaskDatasetSimilar 取消检测
+	CancelCheckTaskDatasetSimilar(ctx context.Context, tenantId uint, taskId string) (err error)
 	// SplitAnnotationDataSegment 将标注数据拆分成训练集和测试集
 	SplitAnnotationDataSegment(ctx context.Context, tenantId uint, taskId string, req taskSplitAnnotationDataRequest) (err error)
 	// ExportAnnotationData 导出标注任务数据
@@ -56,11 +60,13 @@ type Service interface {
 
 // CreationOptions is the options for the faceswap service.
 type CreationOptions struct {
-	httpClientOpts []kithttp.ClientOption
-	datasetImage   string
-	datasetModel   string
-	datasetDrive   string
-	callbackHost   string
+	httpClientOpts     []kithttp.ClientOption
+	datasetImage       string
+	datasetModel       string
+	datasetDrive       string
+	callbackHost       string
+	gpuTolerationValue string
+	fileSvc            files.Service
 }
 
 // CreationOption is a creation option for the faceswap service.
@@ -94,12 +100,54 @@ func WithDatasetDrive(drive string) CreationOption {
 	}
 }
 
+// WithDatasetGpuTolerationValue returns a CreationOption  that sets the dataset drive.
+func WithDatasetGpuTolerationValue(gpuTolerationValue string) CreationOption {
+	return func(co *CreationOptions) {
+		co.gpuTolerationValue = gpuTolerationValue
+	}
+}
+
+// WithFileSvc returns a CreationOption that sets the file service.
+func WithFileSvc(fileSvc files.Service) CreationOption {
+	return func(co *CreationOptions) {
+		co.fileSvc = fileSvc
+	}
+}
+
 type service struct {
 	traceId    string
 	logger     log.Logger
 	repository repository.Repository
 	apiSvc     services.Service
 	options    *CreationOptions
+	fileSvc    files.Service
+}
+
+func (s *service) CancelCheckTaskDatasetSimilar(ctx context.Context, tenantId uint, taskId string) (err error) {
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
+	task, err := s.repository.DatasetTask().GetTask(ctx, tenantId, taskId)
+	if err != nil {
+		err = errors.Wrap(err, "get task failed")
+		_ = level.Warn(logger).Log("msg", "get task failed", "err", err)
+		return
+	}
+	//if task.DetectionStatus != types.DatasetAnnotationDetectionStatusProcessing {
+	//	err = errors.New("the annotation task is not processing, cannot be canceled")
+	//	_ = level.Warn(logger).Log("msg", "the annotation task is not processing, cannot be canceled", "err", err)
+	//	return
+	//}
+	if err = s.apiSvc.Runtime().RemoveJob(ctx, task.JobName); err != nil {
+		err = errors.Wrap(err, "cancel job failed")
+		_ = level.Error(logger).Log("msg", "cancel job failed", "err", err)
+		return
+	}
+	task.DetectionStatus = types.DatasetAnnotationDetectionStatusCanceled
+	if err = s.repository.DatasetTask().UpdateTask(ctx, task); err != nil {
+		err = errors.Wrap(err, "update task failed")
+		_ = level.Error(logger).Log("msg", "update task failed", "err", err)
+		return
+	}
+	return
 }
 
 func (s *service) GetTaskInfo(ctx context.Context, tenantId uint, taskId string) (res taskDetail, err error) {
@@ -148,6 +196,9 @@ func (s *service) TaskDetectFinish(ctx context.Context, tenantId uint, taskId, t
 		_ = level.Error(logger).Log("msg", "update task failed", "err", err)
 		return
 	}
+	if err = s.apiSvc.Runtime().RemoveJob(ctx, task.JobName); err != nil {
+		_ = level.Error(logger).Log("msg", "remove job failed", "err", err)
+	}
 	return
 }
 
@@ -190,22 +241,23 @@ func (s *service) ListTasks(ctx context.Context, tenantId uint, name string, pag
 		start, _ := strconv.Atoi(sequence[0])
 		end, _ := strconv.Atoi(sequence[1])
 		res = append(res, taskDetail{
-			UUID:           task.UUID,
-			Name:           task.Name,
-			Remark:         task.Remark,
-			AnnotationType: task.AnnotationType,
-			Principal:      task.Principal,
-			Status:         string(task.Status),
-			Total:          task.Total,
-			Completed:      task.Completed,
-			DataSequence:   []int{start, end},
-			CreatedAt:      task.CreatedAt,
-			CompletedAt:    task.CompletedAt,
-			Abandoned:      task.Abandoned,
-			TrainTotal:     task.TrainTotal,
-			TestTotal:      task.TestTotal,
-			TestReport:     task.TestReport,
-			DatasetName:    task.DatasetDocument.Name,
+			UUID:            task.UUID,
+			Name:            task.Name,
+			Remark:          task.Remark,
+			AnnotationType:  task.AnnotationType,
+			Principal:       task.Principal,
+			Status:          string(task.Status),
+			Total:           task.Total,
+			Completed:       task.Completed,
+			DataSequence:    []int{start, end},
+			CreatedAt:       task.CreatedAt,
+			CompletedAt:     task.CompletedAt,
+			Abandoned:       task.Abandoned,
+			TrainTotal:      task.TrainTotal,
+			TestTotal:       task.TestTotal,
+			TestReport:      task.TestReport,
+			DatasetName:     task.DatasetDocument.Name,
+			DetectionStatus: string(task.DetectionStatus),
 		})
 	}
 	return
@@ -238,6 +290,10 @@ func (s *service) GetTaskSegmentNext(ctx context.Context, tenantId uint, taskId 
 	if err != nil {
 		err = errors.Wrap(err, "get task failed")
 		_ = level.Warn(logger).Log("msg", "get task failed", "err", err)
+		return
+	}
+	if task.Status == types.DatasetAnnotationStatusCompleted {
+		_ = level.Warn(logger).Log("msg", "the annotation task is completed, cannot be annotated")
 		return
 	}
 	if task.Status != types.DatasetAnnotationStatusProcessing && task.Status != types.DatasetAnnotationStatusPending {
@@ -377,7 +433,6 @@ func (s *service) AsyncCheckTaskDatasetSimilar(ctx context.Context, tenantId uin
 		_ = level.Warn(logger).Log("msg", "the annotation task is not completed, cannot be split", "err", err)
 		return
 	}
-
 	// 获取所有标注好的数据
 	segments, _, err := s.repository.DatasetTask().GetTaskSegments(ctx, annotationTask.ID, types.DatasetAnnotationStatusCompleted, 1, 100000)
 	if err != nil {
@@ -396,68 +451,79 @@ func (s *service) AsyncCheckTaskDatasetSimilar(ctx context.Context, tenantId uin
 		})
 		datasetBody += string(line) + "\n"
 	}
+
+	fileUrl, err := s.fileSvc.UploadToStorage(ctx, util.NewFile([]byte(datasetBody)), "jsonl")
+	if err != nil {
+		_ = level.Error(logger).Log("msg", "upload to storage failed", "err", err)
+		return err
+	}
+
+	_ = level.Info(logger).Log("fileUrl", fileUrl, "msg", "upload to storage success")
+
 	var jobName string
-	//tenantUUid, _ := ctx.Value(middleware.ContextKeyPublicTenantId).(string)
-	//auth, _ := ctx.Value(kithttp.ContextKeyRequestAuthorization).(string)
+	tenantUUid, _ := ctx.Value(middleware.ContextKeyPublicTenantId).(string)
+	auth, _ := ctx.Value(kithttp.ContextKeyRequestAuthorization).(string)
 
 	// 组装脚本，调用api创建容器执行
-	//var envs []runtime.Env
-	//var envVars []string
-	//envs = append(envs, runtime.Env{
-	//	Name:  "DATASET_ANALYZE_MODEL",
-	//	Value: s.options.datasetModel,
-	//}, runtime.Env{
-	//	Name:  "DATASET_ANALYZE_DRIVE",
-	//	Value: s.options.datasetDrive,
-	//}, runtime.Env{
-	//	Name:  "DATASET_PATH",
-	//	Value: "/app/dataset.json",
-	//}, runtime.Env{
-	//	Name:  "DATASET_TYPE",
-	//	Value: "faq",
-	//}, runtime.Env{
-	//	Name:  "DATASET_OUTPUT_FILE",
-	//	Value: "/app/result.json",
-	//}, runtime.Env{
-	//	Name:  "TENANT_ID",
-	//	Value: tenantUUid,
-	//}, runtime.Env{
-	//	Name:  "DATA_TASK_JOB_ID",
-	//	Value: annotationTask.UUID,
-	//}, runtime.Env{
-	//	Name:  "API_HOST",
-	//	Value: s.options.callbackHost,
-	//}, runtime.Env{
-	//	Name:  "AUTH",
-	//	Value: auth,
-	//})
-	//for _, v := range envs {
-	//	envVars = append(envVars, fmt.Sprintf("%s=%s", v.Name, v.Value))
-	//}
-	//var gpuNum int
-	//if s.options.datasetDrive == "cuda" {
-	//	gpuNum = 1
-	//}
-	//jobName, err := s.apiSvc.Runtime().CreateJob(ctx, runtime.Config{
-	//	ServiceName: fmt.Sprintf("dataset-similar-task-%d", annotationTask.ID),
-	//	Image:       s.options.datasetImage,
-	//	Cpu:         0,
-	//	Memory:      0,
-	//	GPU:         gpuNum,
-	//	Command: []string{
-	//		"/bin/bash",
-	//		"/app/dataset_analyze_similar.sh",
-	//	},
-	//	EnvVars: envVars,
-	//	ConfigData: map[string]string{
-	//		"/app/dataset.json": datasetBody,
-	//	},
-	//})
-	//if err != nil {
-	//	err = errors.Wrap(err, "create job failed")
-	//	_ = level.Error(logger).Log("msg", "create job failed", "err", err)
-	//	return
-	//}
+	var envs []runtime.Env
+	var envVars []string
+	envs = append(envs, runtime.Env{
+		Name:  "DATASET_ANALYZE_MODEL",
+		Value: s.options.datasetModel,
+	}, runtime.Env{
+		Name:  "DATASET_PATH",
+		Value: fileUrl,
+	}, runtime.Env{
+		Name:  "DATASET_TYPE",
+		Value: annotationTask.AnnotationType,
+	}, runtime.Env{
+		Name:  "TENANT_ID",
+		Value: tenantUUid,
+	}, runtime.Env{
+		Name:  "DATA_TASK_JOB_ID",
+		Value: annotationTask.UUID,
+	}, runtime.Env{
+		Name:  "API_URL",
+		Value: fmt.Sprintf("%s/api/mgr/annotation/task/%s/detect/finish", s.options.callbackHost, annotationTask.UUID), // 回调
+	}, runtime.Env{
+		Name:  "AUTH",
+		Value: auth,
+	}, runtime.Env{
+		Name:  "HF_HOME",
+		Value: "/data/hf",
+	}, runtime.Env{
+		Name:  "HF_ENDPOINT",
+		Value: os.Getenv("HF_ENDPOINT"),
+	}, runtime.Env{
+		Name:  "HTTP_PROXY",
+		Value: os.Getenv("HTTP_PROXY"),
+	}, runtime.Env{
+		Name:  "HTTPS_PROXY",
+		Value: os.Getenv("HTTPS_PROXY"),
+	})
+	for _, v := range envs {
+		envVars = append(envVars, fmt.Sprintf("%s=%s", v.Name, v.Value))
+	}
+	var gpuNum int
+	if s.options.datasetDrive == "cuda" {
+		gpuNum = 1
+	}
+	jobName, err = s.apiSvc.Runtime().CreateJob(ctx, runtime.Config{
+		ServiceName: fmt.Sprintf("dataset-similar-task-%d", annotationTask.ID),
+		Image:       s.options.datasetImage,
+		GPU:         gpuNum,
+		Command: []string{
+			"/bin/bash",
+			"/app/eval/analyze_similar_questions_and_intents.sh",
+		},
+		EnvVars:            envVars,
+		GpuTolerationValue: s.options.gpuTolerationValue,
+	})
+	if err != nil {
+		err = errors.Wrap(err, "create job failed")
+		_ = level.Error(logger).Log("msg", "create job failed", "err", err)
+		return
+	}
 	_ = level.Info(logger).Log("msg", "create job success", "jobName", jobName)
 	annotationTask.DetectionStatus = types.DatasetAnnotationDetectionStatusProcessing
 	annotationTask.JobName = jobName
@@ -675,7 +741,7 @@ func (s *service) CreateTask(ctx context.Context, tenantId uint, req taskCreateR
 	return
 }
 
-func New(traceId string, logger log.Logger, repository repository.Repository, opts ...CreationOption) Service {
+func New(traceId string, logger log.Logger, repository repository.Repository, apiSvc services.Service, fileSvc files.Service, opts ...CreationOption) Service {
 	logger = log.With(logger, "service", "datasettask")
 	options := &CreationOptions{
 		datasetImage: "dudulu/llmops-0306:v0.1",
@@ -691,6 +757,8 @@ func New(traceId string, logger log.Logger, repository repository.Repository, op
 		logger:     logger,
 		repository: repository,
 		options:    options,
+		apiSvc:     apiSvc,
+		fileSvc:    fileSvc,
 	}
 }
 

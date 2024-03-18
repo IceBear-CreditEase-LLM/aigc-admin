@@ -8,8 +8,10 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/logging"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/fastchat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/ldapcli"
+	runtime2 "github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/runtime"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -97,6 +99,24 @@ const (
 	EnvNameServerKey      = "AIGC_SERVER_KEY"
 	EnvNameServerLogLevel = "AIGC_SERVER_LOG_LEVEL"
 	EnvNameServerLogName  = "AIGC_SERVER_LOG_NAME"
+
+	// [runtime]
+	EnvNameRuntimePlatform      = "AIGC_RUNTIME_PLATFORM"
+	EnvNameRuntimeShmSize       = "AIGC_RUNTIME_SHM_SIZE"
+	EnvNameRuntimeK8sHost       = "AIGC_RUNTIME_K8S_HOST"
+	EnvNameRuntimeK8sToken      = "AIGC_RUNTIME_K8S_TOKEN"
+	EnvNameRuntimeK8sConfigPath = "AIGC_RUNTIME_K8S_CONFIG_PATH"
+	EnvNameRuntimeK8sNamespace  = "AIGC_RUNTIME_K8S_NAMESPACE"
+	EnvNameRuntimeK8sInsecure   = "AIGC_RUNTIME_K8S_INSECURE"
+	DefaultRuntimeK8sVolumeName = ""
+
+	DefaultRuntimePlatform      = "docker"
+	DefaultRuntimeShmSize       = "16G"
+	DefaultRuntimeK8sHost       = ""
+	DefaultRuntimeK8sToken      = ""
+	DefaultRuntimeK8sInsecure   = false
+	DefaultRuntimeK8sConfigPath = ""
+	DefaultRuntimeK8sNamespace  = "default"
 
 	DefaultDbDrive       = "mysql"
 	DefaultMysqlHost     = "localhost"
@@ -204,6 +224,11 @@ var (
 	ldapUserAttr                                                                      []string
 	ldapUseSsl                                                                        bool
 
+	// [runtime]
+	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace string
+	runtimeK8sInsecure                                                                                          bool
+	runtimePaasHost, runtimePaasAccessKey, runtimePaasSecretKey                                                 string
+
 	corsHeaders   = make(map[string]string, 3)
 	rateBucketNum = 50000
 	traceId       = logging.TraceId
@@ -291,9 +316,17 @@ func preRun() {
 	// [docker]
 	dockerWorkspace = envString(EnvNameDockerWorkspace, DefaultDockerWorkspace)
 
+	// [runtime]
+	runtimePlatform = envString(EnvNameRuntimePlatform, DefaultRuntimePlatform)
+	runtimeShmSize = envString(EnvNameRuntimeShmSize, DefaultRuntimeShmSize)
+	runtimeK8sHost = envString(EnvNameRuntimeK8sHost, DefaultRuntimeK8sHost)
+	runtimeK8sToken = envString(EnvNameRuntimeK8sToken, DefaultRuntimeK8sToken)
+	runtimeK8sConfigPath = envString(EnvNameRuntimeK8sConfigPath, DefaultRuntimeK8sConfigPath)
+	runtimeK8sNamespace = envString(EnvNameRuntimeK8sNamespace, DefaultRuntimeK8sNamespace)
+	runtimeK8sInsecure, _ = strconv.ParseBool(envString(EnvNameRuntimeK8sInsecure, strconv.FormatBool(DefaultRuntimeK8sInsecure)))
 }
 
-func Init() (apiSvc services.Service, err error) {
+func Init() (services.Service, error) {
 	preRun()
 	err = prepare(context.Background())
 	if err != nil {
@@ -405,6 +438,15 @@ func prepare(ctx context.Context) error {
 	// 实例化仓库
 	Store = repository.New(gormDB, logger, logging.TraceId, nil)
 
+	var runtimeOpts []runtime2.CreationOption
+	runtimeOpts = append(runtimeOpts,
+		runtime2.WithK8sConfigPath(runtimeK8sConfigPath),
+		runtime2.WithK8sToken(runtimeK8sHost, runtimeK8sToken, runtimeK8sInsecure),
+		runtime2.WithShmSize(runtimeShmSize),
+		runtime2.WithNamespace(runtimeK8sNamespace),
+		runtime2.WithK8sVolumeName("aigc-data-cfs"),
+	)
+
 	// 实例化外部API
 	apiSvc = services.NewApi(ctx, logger, logging.TraceId, serverDebug, nil, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
@@ -426,10 +468,8 @@ func prepare(ctx context.Context) error {
 			Attributes:   ldapUserAttr,
 			Filter:       ldapUserFilter,
 		},
-		Alarm: struct {
-			Host                   string
-			Namespace, ServiceName string
-		}{Host: serviceAlarmHost, Namespace: namespace, ServiceName: serverName},
+		Runtime:         runtimeOpts,
+		RuntimePlatform: runtimePlatform,
 	}, clientOpts, dockerWorkspace)
 
 	Logger = logger

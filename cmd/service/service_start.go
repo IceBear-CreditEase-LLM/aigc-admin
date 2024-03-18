@@ -34,7 +34,6 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/logging"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/middleware"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/alarm"
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
@@ -110,13 +109,14 @@ func start(ctx context.Context) (err error) {
 	tiktoken.SetBpeLoader(tiktoken2.NewBpeLoader(DataFs))
 
 	authSvc = auth.New(logger, traceId, store, apiSvc)
-	fileSvc = files.NewService(logger, traceId, store, apiSvc, files.Config{
-		LocalDataPath: serverStoragePath,
-		ServerUrl:     fmt.Sprintf("%s/storage", serverDomain),
-	})
+	fileSvc = files.NewService(logger, traceId, store, apiSvc, []files.CreationOption{
+		files.WithLocalDataPath(serverStoragePath),
+		files.WithServerUrl(fmt.Sprintf("%s/storage", serverDomain)),
+		files.WithStorageType("local"),
+	}...)
 	channelSvc = channels.NewService(logger, traceId, store, apiSvc)
-	modelSvc = models.NewService(logger, traceId, store, apiSvc, aigcDataCfsPath)
-	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, aigcDataCfsPath)
+	modelSvc = models.NewService(logger, traceId, store, apiSvc)
+	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc)
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)
 	datasetSvc = datasets.New(logger, traceId, store)
 	toolsSvc = tools.New(logger, traceId, store)
@@ -135,8 +135,8 @@ func start(ctx context.Context) (err error) {
 		openai.WithToken(serviceLocalAiToken),
 		openai.WithBaseURL(serviceLocalAiHost),
 	})
-	datasetDocumentSvc = datasetdocument.Nes(traceId, logger, store)
-	datasetTaskSvc = datasettask.New(traceId, logger, store,
+	datasetDocumentSvc = datasetdocument.New(traceId, logger, store)
+	datasetTaskSvc = datasettask.New(traceId, logger, store, apiSvc, fileSvc,
 		datasettask.WithDatasetImage(datasetsImage),
 		datasettask.WithDatasetModel(datasetsModelName),
 		datasettask.WithDatasetDrive(datasetsDevice),
@@ -319,14 +319,10 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 
 	g.Add(func() error {
 		_ = level.Debug(httpLogger).Log("transport", "HTTP", "addr", httpAddr)
-		go func() {
-			_ = apiSvc.Alarm().Push(ctx, "服务启动", "服务它又起来了...", "service_start", alarm.LevelInfo, 1)
-		}()
 		return http.ListenAndServe(httpAddr, nil)
 	}, func(e error) {
 		closeConnection(ctx)
 		_ = level.Error(httpLogger).Log("transport", "HTTP", "httpListener.Close", "http", "err", e)
-		_ = apiSvc.Alarm().Push(ctx, "服务停止", fmt.Sprintf("msg: %s, err: %v", "服务它停了,是不是挂了...", e), "service_start", alarm.LevelInfo, 1)
 		_ = level.Debug(logger).Log("db", "close", "err", db.Close())
 		//if rdb != nil {
 		//	_ = level.Debug(logger).Log("rdb", "close", "err", rdb.Close())

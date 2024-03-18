@@ -13,6 +13,18 @@ type logging struct {
 	traceId string
 }
 
+func (s *logging) CancelCheckTaskDatasetSimilar(ctx context.Context, tenantId uint, taskId string) (err error) {
+	defer func(begin time.Time) {
+		_ = s.logger.Log(
+			s.traceId, ctx.Value(s.traceId),
+			"method", "CancelCheckTaskDatasetSimilar", "tenantId", tenantId, "taskId", taskId,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return s.next.CancelCheckTaskDatasetSimilar(ctx, tenantId, taskId)
+}
+
 func (s *logging) GetTaskInfo(ctx context.Context, tenantId uint, taskId string) (res taskDetail, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(

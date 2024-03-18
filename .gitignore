@@ -4,3 +4,4 @@
 docs/_book
 vendor/
 .cache
+storage

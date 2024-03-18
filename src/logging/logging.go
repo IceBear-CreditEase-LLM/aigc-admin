@@ -19,7 +19,7 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/alarm"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
 )
 
 const (
@@ -51,8 +51,8 @@ func (l *LogErrorHandler) Handle(ctx context.Context, err error) {
 			err.Error(),
 			hostname,
 		)
-		_ = l.apiSvc.Alarm().Push(ctx, "未定义错误!", content, "err_notfound", alarm.LevelInfo, 1)
-		log.Println(fmt.Sprintf("host: %s, err: %s", hostname, err.Error()))
+		//_ = l.apiSvc.Alarm().Push(ctx, "未定义错误!", content, "err_notfound", alarm.LevelInfo, 1)
+		log.Println(fmt.Sprintf("host: %s, err: %s", hostname, content))
 	}
 }
 

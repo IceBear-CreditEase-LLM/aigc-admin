@@ -62,7 +62,7 @@ func MakeHTTPHandler(s Service, mdw []endpoint.Middleware, opts []kithttp.Server
 	r.Handle("/{datasetTaskId}/clean", kithttp.NewServer(
 		eps.CleanAnnotationTaskEndpoint,
 		kithttp.NopRequestDecoder,
-		encode.JsonResponse, kitopts...)).Methods(http.MethodPut)
+		encode.JsonResponse, kitopts...)).Methods(http.MethodPut, http.MethodPost)
 	r.Handle("/{datasetTaskId}/segment/{datasetTaskSegmentId}/mark", kithttp.NewServer(
 		eps.AnnotationTaskSegmentEndpoint,
 		decodeTaskSegmentMarkRequest,
@@ -87,6 +87,14 @@ func MakeHTTPHandler(s Service, mdw []endpoint.Middleware, opts []kithttp.Server
 		eps.TaskInfoEndpoint,
 		kithttp.NopRequestDecoder,
 		encode.JsonResponse, kitopts...)).Methods(http.MethodGet)
+	r.Handle("/{datasetTaskId}/detect/cancel", kithttp.NewServer(
+		eps.CancelCheckTaskDatasetSimilarEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse, kitopts...)).Methods(http.MethodPut, http.MethodPost)
+	r.Handle("/{datasetTaskId}/detect/annotation/async", kithttp.NewServer(
+		eps.AsyncCheckTaskDatasetSimilarEndpoint,
+		kithttp.NopRequestDecoder,
+		encode.JsonResponse, kitopts...)).Methods(http.MethodPost)
 	return r
 }
 

@@ -80,16 +80,12 @@ aigc-admin cronjob start -h`,
 )
 
 func cronStart(ctx context.Context, args []string) (err error) {
-	fileSvc = files.NewService(logger, traceId, store, apiSvc, files.Config{
-		S3: struct {
-			AccessKey        string
-			SecretKey        string
-			BucketName       string
-			BucketNamePublic string
-			ProjectName      string
-		}{AccessKey: serviceS3AccessKey, SecretKey: serviceS3SecretKey, BucketName: serviceS3Bucket, BucketNamePublic: serviceS3BucketPublic, ProjectName: serviceS3ProjectName},
-	})
-	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, aigcDataCfsPath)
+	fileSvc = files.NewService(logger, traceId, store, apiSvc, []files.CreationOption{
+		files.WithLocalDataPath(serverStoragePath),
+		files.WithServerUrl(fmt.Sprintf("%s/storage", serverDomain)),
+		files.WithStorageType("local"),
+	}...)
+	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc)
 
 	crontab := cron.New(cron.WithSeconds()) //精确到秒
 

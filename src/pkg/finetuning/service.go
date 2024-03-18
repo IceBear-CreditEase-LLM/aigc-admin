@@ -11,8 +11,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/finetuning"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/alarm"
-	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/dockerapi"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/runtime"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -62,14 +61,12 @@ type Service interface {
 }
 
 type service struct {
-	traceId     string
-	logger      log.Logger
-	store       repository.Repository
-	api         services.Service
-	namespace   string
-	dataCfsPath string
-	mu          sync.Mutex
-	fileSvc     files.Service
+	traceId string
+	logger  log.Logger
+	store   repository.Repository
+	api     services.Service
+	mu      sync.Mutex
+	fileSvc files.Service
 }
 
 func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trainingFileId, baseModel, suffix, validationFile string, epochs int) (res jobResult, err error) {
@@ -261,22 +258,10 @@ func (s *service) _cancelJob(ctx context.Context, channelId uint, fineTuningJob 
 	}
 	err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName)
 	if err != nil {
-		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
-		err = errors.Wrap(err, "api.DockerApi.Remove")
-		return
+		_ = level.Warn(logger).Log("api.DockerApi", "Remove", "err", err.Error())
+		//err = errors.Wrap(err, "api.DockerApi.Remove")
+		//return
 	}
-	// 调用paas强制删除job
-	//if err = s.api.Paas().DeleteJob(ctx, s.namespace, jobInfo.PaasJobName); err != nil {
-	//	_ = level.Error(logger).Log("api.Paas", "DeleteJob", "err", err.Error())
-	//	//return
-	//}
-	// 调用paas删除configmap
-	//serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
-	//serviceName = strings.ReplaceAll(serviceName, ".", "-")
-	//if err = s.api.Paas().DeleteConfigMap(ctx, s.namespace, serviceName, fmt.Sprintf("%s-config", serviceName)); err != nil {
-	//	_ = level.Error(logger).Log("api.Paas", "DeleteConfigMap", "err", err.Error())
-	//	//return
-	//}
 	// 更新数据库状态
 	jobInfo.TrainStatus = types.TrainStatusCancel
 	if err = s.store.FineTuning().UpdateFineTuningJob(ctx, &jobInfo); err != nil {
@@ -324,19 +309,6 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 		_ = level.Error(logger).Log("repository.FineTuningJob", "UpdateFineTuningJob", "err", err.Error())
 		return errors.Wrap(err, "repository.FineTuningJob.UpdateFineTuningJob")
 	}
-	// 删除job 和configmap
-	// 调用paas强制删除job
-	//if err = s.api.Paas().DeleteJob(ctx, s.namespace, jobInfo.PaasJobName); err != nil {
-	//	_ = level.Error(logger).Log("api.Paas", "DeleteJob", "err", err.Error())
-	//	//_ = s.api.Alarm().Push(ctx, "微调任务删除job失败", fmt.Sprintf("微调任务删除job失败, jobName: %s, err: %s", jobInfo.PaasJobName, err.Error()), "paas-chat-api", alarm.LevelWarning, 5)
-	//}
-	// 调用paas删除configmap
-	//serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
-	//serviceName = strings.ReplaceAll(serviceName, ".", "-")
-	//if err = s.api.Paas().DeleteConfigMap(ctx, s.namespace, serviceName, fmt.Sprintf("%s-config", serviceName)); err != nil {
-	//	_ = level.Error(logger).Log("api.Paas", "DeleteConfigMap", "err", err.Error())
-	//	//_ = s.api.Alarm().Push(ctx, "微调任务删除configmap失败", fmt.Sprintf("微调任务删除configmap失败, serviceName: %s, err: %s", serviceName, err.Error()), "paas-chat-api", alarm.LevelWarning, 5)
-	//}
 	err = s.api.Runtime().RemoveJob(ctx, jobInfo.PaasJobName)
 	if err != nil {
 		_ = level.Error(logger).Log("api.DockerApi", "Remove", "err", err.Error())
@@ -363,7 +335,7 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 
 	if err = s.store.Model().CreateModel(ctx, model); err != nil {
 		_ = level.Error(logger).Log("repository.Models", "Create", "err", err.Error())
-		_ = s.api.Alarm().Push(ctx, "微调任务创建模型失败", fmt.Sprintf("微调任务创建模型失败, jobName: %s, err: %s", jobInfo.PaasJobName, err.Error()), "paas-chat-api", alarm.LevelInfo, 5)
+		//_ = s.api.Alarm().Push(ctx, "微调任务创建模型失败", fmt.Sprintf("微调任务创建模型失败, jobName: %s, err: %s", jobInfo.PaasJobName, err.Error()), "paas-chat-api", alarm.LevelInfo, 5)
 		return errors.Wrap(err, "repository.Models.Create")
 	}
 
@@ -435,80 +407,31 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 	}
 	jobInfo.TrainScript = tplContent
 
-	//namespaceName := s.namespace
 	serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
 	serviceName = strings.ReplaceAll(serviceName, ".", "-")
-
-	// 创建服务名
-	//if err = s.api.Paas().CreateService(ctx, namespaceName, serviceName); err != nil {
-	//	_ = level.Warn(logger).Log("api.Paas", "CreateService", "err", err.Error())
-	//	//return errors.Wrap(err, "api.Paas.CreateService")
-	//}
-	// 创建configmap
-	//if err = s.api.Paas().CreateConfigMap(ctx, namespaceName, serviceName, fmt.Sprintf("%s-config", serviceName), map[string]string{
-	//	"train.sh": tplContent,
-	//}); err != nil {
-	//	_ = level.Error(logger).Log("api.Paas", "CreateConfigMap", "err", err.Error())
-	//	return errors.Wrap(err, "api.Paas.CreateConfigMap")
-	//}
-
 	var jobName string
-	jobName, err = s.api.DockerApi().Create(ctx, serviceName, dockerapi.Config{
-		Image: jobInfo.Template.TrainImage,
+	jobName, err = s.api.Runtime().CreateDeployment(ctx, runtime.Config{
+		ServiceName: serviceName,
+		Image:       jobInfo.Template.TrainImage,
+		Cpu:         0,
+		Memory:      0,
 		Command: []string{
 			"/bin/sh",
 			"-c",
 			"/app/train.sh",
 		},
-		GPU: jobInfo.ProcPerNode,
-		Volumes: []dockerapi.Volume{
-			{
-				Key:   "./train.sh",
-				Value: "/app/",
-			}, {
-				Key:   s.dataCfsPath,
-				Value: "/data/ft-model",
-			}, {
-				Key:   s.dataCfsPath,
-				Value: "/data/base-model",
-			},
-		},
+		EnvVars: nil,
+		Volumes: nil,
 		ConfigData: map[string]string{
-			"./train.sh": tplContent,
+			"train.sh": tplContent,
 		},
+		Replicas: 1,
 	})
 	if err != nil {
 		err = errors.Wrap(err, "docker api create")
 		return
 	}
 
-	//if jobName, err = s.api.Paas().CreateJob(ctx, namespaceName, serviceName, jobInfo.Template.TrainImage, jobInfo.ProcPerNode, 0, 0, []string{
-	//	"/bin/sh",
-	//	"-c",
-	//	"/app/train.sh",
-	//}, []paas.Volume{
-	//	{
-	//		ConfigMapKey: []string{"train.sh"}, // configMap
-	//		MountPath:    "/app/",
-	//		Type:         1,
-	//		VolumeName:   fmt.Sprintf("%s-config", serviceName),
-	//	},
-	//	{
-	//		VolumeName: "aigc-data-cfs", // pvc
-	//		Type:       2,
-	//		MountPath:  "/data/ft-model",
-	//		SubPath:    "ft-model",
-	//	},
-	//	{
-	//		VolumeName: "aigc-data-cfs", // pvc
-	//		Type:       2,
-	//		MountPath:  "/data/base-model",
-	//		SubPath:    "base-model",
-	//	},
-	//}, s.gpuTolerationValue); err != nil {
-	//	_ = level.Error(logger).Log("api.Paas", "CreateJob", "err", err.Error())
-	//	return errors.Wrap(err, "api.Paas.CreateJob")
-	//}
 	t := time.Now()
 	jobInfo.PaasJobName = jobName
 	jobInfo.TrainStatus = types.TrainStatusRunning
@@ -767,15 +690,13 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	return fileUrl, nil
 }
 
-func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc services.Service, dataCfsPath string) Service {
+func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc services.Service) Service {
 	return &service{
-		traceId:     traceId,
-		logger:      logger,
-		store:       store,
-		namespace:   "aigc",
-		api:         apiSvc,
-		dataCfsPath: dataCfsPath,
-		fileSvc:     fileSvc,
+		traceId: traceId,
+		logger:  logger,
+		store:   store,
+		api:     apiSvc,
+		fileSvc: fileSvc,
 	}
 }
 

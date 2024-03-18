@@ -11,6 +11,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/runtime"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
+	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
@@ -19,7 +20,6 @@ import (
 	"gorm.io/gorm/utils"
 	"math/rand"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -53,12 +53,34 @@ type Service interface {
 	SyncDeployStatus(ctx context.Context, modelId string) error
 }
 
+// CreationOptions is the options for the faceswap service.
+type CreationOptions struct {
+	httpClientOpts  []kithttp.ClientOption
+	runtimePlatform string
+}
+
+// CreationOption is a creation option for the faceswap service.
+type CreationOption func(*CreationOptions)
+
+// WithHTTPClientOptions is a creation option for setting the http client options.
+func WithHTTPClientOptions(opts ...kithttp.ClientOption) CreationOption {
+	return func(o *CreationOptions) {
+		o.httpClientOpts = append(o.httpClientOpts, opts...)
+	}
+}
+
+// WithRuntimePlatform is a creation option for setting the runtime platform.
+func WithRuntimePlatform(platform string) CreationOption {
+	return func(o *CreationOptions) {
+		o.runtimePlatform = platform
+	}
+}
+
 type service struct {
-	logger          log.Logger
-	traceId         string
-	store           repository.Repository
-	apiSvc          services.Service
-	aigcDataCfsPath string
+	logger  log.Logger
+	traceId string
+	store   repository.Repository
+	apiSvc  services.Service
 }
 
 const (
@@ -393,29 +415,18 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 	cid, err := s.apiSvc.Runtime().CreateDeployment(ctx, runtime.Config{
 		ServiceName: serviceName,
 		Image:       inferenceTemplate.TrainImage,
-		Command:     []string{"/bin/sh", "-c", "/app/start-worker.sh"},
+		Command:     []string{"/bin/bash", "/app/start.sh"},
 		EnvVars:     nil,
-		Volumes: []runtime.Volume{
-			{
-				Key:   "start.sh",
-				Value: "/app/start-worker.sh",
-			}, {
-				Key:   s.aigcDataCfsPath,
-				Value: "/data/",
-			},
-		},
-		GpuTolerationValue: "",
-		Ports:              map[string]string{strconv.Itoa(randomPort): strconv.Itoa(port)},
-		GPU:                req.Gpu,
+		GPU:         req.Gpu,
 		ConfigData: map[string]string{
-			"start.sh": template,
+			"/app/start.sh": template,
 		},
 		Replicas: int32(req.Replicas),
 	})
 
 	if err != nil {
-		_ = level.Error(logger).Log("api.DockerApi", "Create", "err", err.Error())
-		return errors.Wrap(err, "api.DockerApi.Create")
+		_ = level.Error(logger).Log("api.Runtime", "Create", "err", err.Error())
+		return errors.Wrap(err, "api.Runtime.Create")
 	}
 
 	// 插入部署表
@@ -626,13 +637,12 @@ func providerName(m string) types.ModelProvider {
 	return types.ModelProviderLocalAI
 }
 
-func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service, aigcDataCfsPath string) Service {
+func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service) Service {
 	return &service{
-		logger:          log.With(logger, "service", "models"),
-		traceId:         traceId,
-		store:           store,
-		apiSvc:          apiSvc,
-		aigcDataCfsPath: aigcDataCfsPath,
+		logger:  log.With(logger, "service", "models"),
+		traceId: traceId,
+		store:   store,
+		apiSvc:  apiSvc,
 	}
 }
 

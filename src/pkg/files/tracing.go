@@ -12,6 +12,19 @@ type tracing struct {
 	tracer opentracing.Tracer
 }
 
+func (s *tracing) UploadToStorage(ctx context.Context, file multipart.File, fileType string) (url string, err error) {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "UploadToStorage", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "pkg.files",
+	})
+	defer func() {
+		span.LogKV("file", file, "fileType", fileType, "err", err)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.UploadToStorage(ctx, file, fileType)
+}
+
 func (s *tracing) UploadLocal(ctx context.Context, file multipart.File, fileType string) (localFile string, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "UploadLocal", opentracing.Tag{
 		Key:   string(ext.Component),

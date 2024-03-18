@@ -13,6 +13,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// WithWorkspace returns a CreationOption that sets the workspace.
+func WithWorkspace(workspace string) CreationOption {
+	return func(co *CreationOptions) {
+		co.workspace = workspace
+	}
+}
+
 type docker struct {
 	options       *CreationOptions
 	dockerCli     *client.Client

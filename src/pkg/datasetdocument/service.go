@@ -142,7 +142,7 @@ func (s *service) DeleteDocument(ctx context.Context, tenantId uint, uuid string
 	return err
 }
 
-func Nes(traceId string, logger log.Logger, repository repository.Repository) Service {
+func New(traceId string, logger log.Logger, repository repository.Repository) Service {
 	logger = log.With(logger, "service", "datasetdocument")
 	return &service{
 		traceId:    traceId,

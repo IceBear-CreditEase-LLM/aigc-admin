@@ -47,6 +47,8 @@ const (
 	DatasetAnnotationDetectionStatusProcessing DatasetAnnotationDetectionStatus = "processing"
 	// DatasetAnnotationDetectionStatusCompleted 已完成
 	DatasetAnnotationDetectionStatusCompleted DatasetAnnotationDetectionStatus = "completed"
+	// DatasetAnnotationDetectionStatusCanceled 已取消
+	DatasetAnnotationDetectionStatusCanceled DatasetAnnotationDetectionStatus = "canceled"
 )
 
 // DatasetAnnotationTaskSegment is a struct type

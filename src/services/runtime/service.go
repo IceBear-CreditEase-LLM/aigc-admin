@@ -29,6 +29,7 @@ type CreationOptions struct {
 	namespace      string
 	k8sConfigPath  string
 	k8sTokenModel  k8sTokenModel
+	k8sVolumeName  string
 }
 
 type k8sTokenModel struct {
@@ -37,48 +38,8 @@ type k8sTokenModel struct {
 	insecure bool
 }
 
-// CreationOption is a creation option for the faceswap service.
+// CreationOption is a creation option for the runtime service.
 type CreationOption func(*CreationOptions)
-
-// WithEndpoint returns a CreationOption that sets the base url.
-func WithEndpoint(baseUrl string) CreationOption {
-	return func(co *CreationOptions) {
-		co.endpoint = baseUrl
-	}
-}
-
-func WithK8sConfigPath(k8sConfigPath string) CreationOption {
-	return func(co *CreationOptions) {
-		co.k8sConfigPath = k8sConfigPath
-	}
-}
-
-func WithK8sToken(host, token string, insecure bool) CreationOption {
-	return func(co *CreationOptions) {
-		co.k8sTokenModel.host = host
-		co.k8sTokenModel.token = token
-		co.k8sTokenModel.insecure = insecure
-	}
-}
-
-func WithShmSize(shmSize string) CreationOption {
-	return func(co *CreationOptions) {
-		co.shmSize = shmSize
-	}
-}
-
-func WithNamespace(namespace string) CreationOption {
-	return func(co *CreationOptions) {
-		co.namespace = namespace
-	}
-}
-
-// WithWorkspace returns a CreationOption that sets the workspace.
-func WithWorkspace(workspace string) CreationOption {
-	return func(co *CreationOptions) {
-		co.workspace = workspace
-	}
-}
 
 type Volume struct {
 	// 宿主路径
@@ -96,6 +57,7 @@ type Config struct {
 	namespace          string
 	ServiceName        string
 	Image              string
+	Cpu                int64
 	Memory             int64
 	Command            []string
 	EnvVars            []string
@@ -112,10 +74,32 @@ type Config struct {
 	Replicas int32
 
 	ShmSize string
+
+	restartPolicy v1.RestartPolicy
 }
 
 func (c Config) FilePath2Key(filePath string) string {
 	return strings.Trim(strings.ReplaceAll(filePath, "/", "-"), "-")
+}
+
+func (c Config) GenIpaasConfigMap() (res v1.ConfigMap) {
+	data := make(map[string]string, 0)
+	for k, v := range c.ConfigData {
+		_, fileName := filepath.Split(k)
+		data[fileName] = v
+	}
+	res = v1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: c.namespace,
+			Name:      c.ServiceName,
+		},
+		Data: data,
+	}
+	return
 }
 
 func (c Config) GenConfigMap() (res v1.ConfigMap) {
@@ -140,22 +124,22 @@ func (c Config) GenConfigMap() (res v1.ConfigMap) {
 func (c Config) GenVolumeAndVolumeMount() (volumes []v1.Volume, volumeMounts []v1.VolumeMount) {
 	volumeCurrent := map[string]bool{}
 	for _, v := range c.Volumes {
-		volumeName := c.FilePath2Key(v.Key)
-		if _, ok := volumeCurrent[volumeName]; !ok {
+		// volumeName := c.FilePath2Key(v.Key)
+		if _, ok := volumeCurrent[v.Key]; !ok {
 			volumes = append(volumes, v1.Volume{
-				Name: volumeName,
+				Name: v.Key,
 				VolumeSource: v1.VolumeSource{
-					HostPath: &v1.HostPathVolumeSource{
-						Path: v.Key,
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: v.Key,
 					},
 				},
 			})
 		}
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
-			Name:      volumeName,
+			Name:      v.Key,
 			MountPath: v.Value,
 		})
-		volumeCurrent[volumeName] = true
+		volumeCurrent[v.Key] = true
 	}
 
 	if len(c.ConfigData) > 0 {
@@ -326,7 +310,7 @@ func (c Config) GenPodTemplateSpec() (res v1.PodSpec, err error) {
 	if c.GpuTolerationValue != "" {
 		tolerations = append(tolerations, v1.Toleration{
 			Key:      "nvidia.com/gpu",
-			Operator: v1.TolerationOpExists,
+			Operator: v1.TolerationOpEqual,
 			Value:    c.GpuTolerationValue,
 			Effect:   v1.TaintEffectNoSchedule,
 		})
@@ -336,7 +320,7 @@ func (c Config) GenPodTemplateSpec() (res v1.PodSpec, err error) {
 		Tolerations:   tolerations,
 		Volumes:       volumes,
 		Containers:    containers,
-		RestartPolicy: v1.RestartPolicyAlways,
+		RestartPolicy: c.restartPolicy,
 		DNSPolicy:     v1.DNSClusterFirst,
 	}
 	return
@@ -383,8 +367,8 @@ func (c Config) GenContainers() (res []v1.Container, err error) {
 		})
 	}
 
-	if c.CPU != 0 {
-		resources[v1.ResourceCPU] = resource.MustParse(fmt.Sprintf("%d", c.CPU))
+	if c.Cpu != 0 {
+		resources[v1.ResourceCPU] = resource.MustParse(fmt.Sprintf("%d", c.Cpu))
 	}
 
 	if c.Memory != 0 {
@@ -541,3 +525,14 @@ type Service interface {
 
 // Middleware is a service middleware
 type Middleware func(service Service) Service
+
+func New(platform string, opts ...CreationOption) (Service, error) {
+	switch platform {
+	case "k8s":
+		return NewK8s(opts...)
+	case "docker":
+		return NewDocker(opts...), nil
+	default:
+		return NewDocker(opts...), nil
+	}
+}

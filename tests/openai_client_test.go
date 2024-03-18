@@ -166,7 +166,7 @@ func TestAudioTranslations(t *testing.T) {
 	//client, model := getOpenAIClient()
 	req := openai.AudioRequest{
 		Model:    model,
-		FilePath: "/Users/leng/Downloads/111.mp3",
+		FilePath: "~/Downloads/111.mp3",
 		Format:   "vtt",
 	}
 	ctx := context.Background()

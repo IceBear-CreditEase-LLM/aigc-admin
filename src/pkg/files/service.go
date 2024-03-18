@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/types"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
+	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
@@ -21,6 +23,78 @@ import (
 	"time"
 )
 
+// CreationOptions is the options for the faceswap service.
+type CreationOptions struct {
+	httpClientOpts []kithttp.ClientOption
+	storageType    string
+	serverUrl      string
+	localDataPath  string
+	s3Endpoint     string
+	s3AccessKey    string
+	s3SecretKey    string
+	s3BucketName   string
+	s3Region       string
+}
+
+// CreationOption is a creation option for the faceswap service.
+type CreationOption func(*CreationOptions)
+
+// WithHTTPClientOptions returns a CreationOption that sets the http client options.
+func WithHTTPClientOptions(opts ...kithttp.ClientOption) CreationOption {
+	return func(o *CreationOptions) {
+		o.httpClientOpts = opts
+	}
+}
+
+// WithStorageType returns a CreationOption that sets the storage type.
+func WithStorageType(storageType string) CreationOption {
+	return func(o *CreationOptions) {
+		o.storageType = storageType
+	}
+}
+
+// WithServerUrl returns a CreationOption that sets the server url.
+func WithServerUrl(serverUrl string) CreationOption {
+	return func(o *CreationOptions) {
+		o.serverUrl = serverUrl
+	}
+}
+
+// WithLocalDataPath returns a CreationOption that sets the local data path.
+func WithLocalDataPath(localDataPath string) CreationOption {
+	return func(o *CreationOptions) {
+		o.localDataPath = localDataPath
+	}
+}
+
+// WithS3Endpoint returns a CreationOption that sets the s3 endpoint.
+func WithS3Endpoint(s3Endpoint string) CreationOption {
+	return func(o *CreationOptions) {
+		o.s3Endpoint = s3Endpoint
+	}
+}
+
+// WithS3AccessKey returns a CreationOption that sets the s3 access key.
+func WithS3AccessKey(s3AccessKey string) CreationOption {
+	return func(o *CreationOptions) {
+		o.s3AccessKey = s3AccessKey
+	}
+}
+
+// WithS3SecretKey returns a CreationOption that sets the s3 secret key.
+func WithS3SecretKey(s3SecretKey string) CreationOption {
+	return func(o *CreationOptions) {
+		o.s3SecretKey = s3SecretKey
+	}
+}
+
+// WithS3BucketName returns a CreationOption that sets the s3 bucket name.
+func WithS3BucketName(s3BucketName string) CreationOption {
+	return func(o *CreationOptions) {
+		o.s3BucketName = s3BucketName
+	}
+}
+
 type Service interface {
 	CreateFile(ctx context.Context, request FileRequest) (file File, err error)
 	ListFiles(ctx context.Context, request ListFileRequest) (files FileList, err error)
@@ -30,41 +104,54 @@ type Service interface {
 	UploadToS3(ctx context.Context, file multipart.File, fileType string, isPublicBucket bool) (s3Url string, err error)
 	// UploadLocal 上传文件到本地存储
 	UploadLocal(ctx context.Context, file multipart.File, fileType string) (localFile string, err error)
+	// UploadToStorage 上传文件到存储
+	UploadToStorage(ctx context.Context, file multipart.File, fileType string) (url string, err error)
 }
 
 type service struct {
-	logger                   log.Logger
-	traceId                  string
-	store                    repository.Repository
-	apiSvc                   services.Service
-	localDataPath, serverUrl string
-	localDataFS              embed.FS
-	Config
+	logger      log.Logger
+	traceId     string
+	store       repository.Repository
+	apiSvc      services.Service
+	localDataFS embed.FS
+	options     *CreationOptions
+}
+
+func (s *service) UploadToStorage(ctx context.Context, file multipart.File, fileType string) (url string, err error) {
+	switch s.options.storageType {
+	case "s3":
+		url, err = s.UploadToS3(ctx, file, fileType, false)
+		break
+	case "local":
+		url, err = s.UploadLocal(ctx, file, fileType)
+		break
+	}
+	return
 }
 
 func (s *service) UploadToS3(ctx context.Context, file multipart.File, fileType string, isPublicBucket bool) (s3Url string, err error) {
 	// 如果 isPublicBucket 为true,则使用公有桶，否则使用私有桶
-	bucketName := s.S3.BucketName //默认私有桶
-	if isPublicBucket == true {
-		bucketName = s.S3.BucketNamePublic
-	}
-	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "UploadToS3")
-	paths := strings.Split(time.Now().Format(time.RFC3339), "-")
-	id, _ := util.GenShortId(24)
-	fileName := fmt.Sprintf("%s.%s", id, fileType)
-	targetPath := fmt.Sprintf("%s/%s/%s/%s", fileType, paths[0], paths[1], fileName)
-	err = s.apiSvc.S3Client(ctx).Upload(ctx, bucketName, targetPath, file, "")
-	if err != nil {
-		return "", err
-	}
+	//bucketName := s.options.s3BucketName //默认私有桶
+	//if isPublicBucket == true {
+	//	//bucketName = s.options.s3BucketNamePublic
+	//}
+	//logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "UploadToS3")
+	//paths := strings.Split(time.Now().Format(time.RFC3339), "-")
+	//id, _ := util.GenShortId(24)
+	//fileName := fmt.Sprintf("%s.%s", id, fileType)
+	//targetPath := fmt.Sprintf("%s/%s/%s/%s", fileType, paths[0], paths[1], fileName)
+	//err = s.apiSvc.S3Client(ctx).Upload(ctx, bucketName, targetPath, file, "")
+	//if err != nil {
+	//	return "", err
+	//}
+	//
+	//s3Url, err = s.apiSvc.S3Client(ctx).ShareGen(ctx, bucketName, targetPath, 60*24*31*12)
+	//if err != nil {
+	//	_ = level.Error(logger).Log("pan", "ShareGen", "err", err.Error())
+	//	return
+	//}
 
-	shareUrl, err := s.apiSvc.S3Client(ctx).ShareGen(ctx, bucketName, targetPath, 60*24*31*12)
-	if err != nil {
-		_ = level.Error(logger).Log("pan", "ShareGen", "err", err.Error())
-		return
-	}
-
-	return shareUrl, nil
+	return s3Url, nil
 }
 
 // UploadLocal 将文件上传到本地目录
@@ -73,8 +160,8 @@ func (s *service) UploadLocal(ctx context.Context, file multipart.File, fileType
 	paths := strings.Split(time.Now().Format(time.RFC3339), "-")
 	id, _ := util.GenShortId(24)
 	fileName := fmt.Sprintf("%s.%s", id, fileType)
-	targetPath := path.Join(s.localDataPath, fileType, paths[0], paths[1], fileName)
-	if err = os.MkdirAll(path.Join(s.localDataPath, fileType, paths[0], paths[1]), os.ModePerm); err != nil {
+	targetPath := path.Join(s.options.localDataPath, fileType, paths[0], paths[1], fileName)
+	if err = os.MkdirAll(path.Join(s.options.localDataPath, fileType, paths[0], paths[1]), os.ModePerm); err != nil {
 		return "", errors.Wrap(err, "os.MkdirAll")
 	}
 
@@ -93,7 +180,7 @@ func (s *service) UploadLocal(ctx context.Context, file multipart.File, fileType
 		_ = level.Error(logger).Log("io", "Copy", "err", err.Error())
 		return
 	}
-	return fmt.Sprintf("%s/%s", s.serverUrl, path.Join(fileType, paths[0], paths[1], fileName)), nil
+	return fmt.Sprintf("%s/%s", s.options.serverUrl, path.Join(fileType, paths[0], paths[1], fileName)), nil
 }
 
 func (s *service) CreateFile(ctx context.Context, request FileRequest) (file File, err error) {
@@ -128,17 +215,12 @@ func (s *service) CreateFile(ctx context.Context, request FileRequest) (file Fil
 		return file, nil
 	}
 
-	// 文件上传云盘
-	//url, err := s.UploadToS3(ctx, request.file, request.FileType, false)
-	//if err != nil {
-	//	return file, err
-	//}
-	// 文件保存到本地
-	fileUrl, err := s.UploadLocal(ctx, request.File, request.FileType)
+	fileUrl, err := s.UploadToStorage(ctx, request.File, request.FileType)
 	if err != nil {
 		_ = level.Error(logger).Log("uploadLocal", err.Error())
 		return
 	}
+	_ = level.Info(logger).Log("fileUrl", fileUrl)
 	// 保存文件信息到数据库
 	data := &types.Files{
 		FileID:     uuid.New().String(),
@@ -239,15 +321,21 @@ type Config struct {
 	ServerUrl     string
 }
 
-func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service, cfg Config) Service {
+func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service, opts ...CreationOption) Service {
 	_ = log.With(logger, "pkg.files", "service")
+	options := &CreationOptions{
+		storageType:   "local",
+		serverUrl:     "http://localhost:8080",
+		localDataPath: "/data/storage",
+	}
+	for _, opt := range opts {
+		opt(options)
+	}
 	return &service{
-		logger:        logger,
-		traceId:       traceId,
-		store:         store,
-		Config:        cfg,
-		apiSvc:        apiSvc,
-		localDataPath: cfg.LocalDataPath,
-		serverUrl:     cfg.ServerUrl,
+		logger:  logger,
+		traceId: traceId,
+		store:   store,
+		apiSvc:  apiSvc,
+		options: options,
 	}
 }

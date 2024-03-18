@@ -6,8 +6,10 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/fastchat"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/ldapcli"
+	runtime2 "github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/runtime"
 	"github.com/sashabaranov/go-openai"
 	"net"
 	"net/http"
@@ -66,27 +68,24 @@ const (
 	EnvNameTracerJaegerLogSpans = "AIGC_TRACER_JAEGER_LOG_SPANS"
 
 	// [外部Service相关]
-	EnvNameServiceAlarmHost      = "AIGC_SERVICE_ALARM_HOST"     // 告警相关
-	EnvNameServiceLocalAIHost    = "AIGC_SERVICE_CHAT_API_HOST"  // chat-api 地址
-	EnvNameServiceLocalAIToken   = "AIGC_SERVICE_CHAT_API_TOKEN" // chat-api token
-	EnvNameServiceOpenAiEnable   = "AIGC_SERVICE_OPENAI_ENABLE"  // openai相关
-	EnvNameServiceOpenAiHost     = "AIGC_SERVICE_OPENAI_HOST"
-	EnvNameServiceOpenAiToken    = "AIGC_SERVICE_OPENAI_TOKEN"
-	EnvNameServiceOpenAiModel    = "AIGC_SERVICE_OPENAI_MODEL"
-	EnvNameServiceOpenAiOrgId    = "AIGC_SERVICE_OPENAI_ORG_ID"
-	EnvNameServiceS3Host         = "AIGC_SERVICE_S3_HOST" // S3对象存储相当
-	EnvNameServiceS3AccessKey    = "AIGC_SERVICE_S3_ACCESS_KEY"
-	EnvNameServiceS3SecretKey    = "AIGC_SERVICE_S3_SECRET_KEY"
-	EnvNameServiceS3S3Url        = "AIGC_SERVICE_S3_S3URL"
-	EnvNameServiceS3Region       = "AIGC_SERVICE_S3_REGION"
-	EnvNameServiceS3Bucket       = "AIGC_SERVICE_S3_BUCKET"
-	EnvNameServiceS3BucketPublic = "AIGC_SERVICE_S3_BUCKET_PUBLIC"
-	EnvNameServiceS3DownloadUrl  = "AIGC_SERVICE_S3_DOWNLOAD_URL"
-	EnvNameServiceS3ProjectName  = "AIGC_SERVICE_S3_PROJECT_NAME"
-	EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
-	// [docker]
-	EnvNameDockerChatDataCfsPath = "AIGC_DOCKER_CHAT_DATA_CFS_PATH" // docker 存储的位置
-	EnvNameDockerWorkspace       = "AIGC_DOCKER_WORKSPACE"          // docker 工作目录
+	EnvNameServiceAlarmHost    = "AIGC_SERVICE_ALARM_HOST"     // 告警相关
+	EnvNameServiceLocalAIHost  = "AIGC_SERVICE_CHAT_API_HOST"  // chat-api 地址
+	EnvNameServiceLocalAIToken = "AIGC_SERVICE_CHAT_API_TOKEN" // chat-api token
+	EnvNameServiceOpenAiEnable = "AIGC_SERVICE_OPENAI_ENABLE"  // openai相关
+	EnvNameServiceOpenAiHost   = "AIGC_SERVICE_OPENAI_HOST"
+	EnvNameServiceOpenAiToken  = "AIGC_SERVICE_OPENAI_TOKEN"
+	EnvNameServiceOpenAiModel  = "AIGC_SERVICE_OPENAI_MODEL"
+	EnvNameServiceOpenAiOrgId  = "AIGC_SERVICE_OPENAI_ORG_ID"
+	//EnvNameServiceS3Host         = "AIGC_SERVICE_S3_HOST" // S3对象存储相当
+	//EnvNameServiceS3AccessKey    = "AIGC_SERVICE_S3_ACCESS_KEY"
+	//EnvNameServiceS3SecretKey    = "AIGC_SERVICE_S3_SECRET_KEY"
+	//EnvNameServiceS3S3Url        = "AIGC_SERVICE_S3_S3URL"
+	//EnvNameServiceS3Region       = "AIGC_SERVICE_S3_REGION"
+	//EnvNameServiceS3Bucket       = "AIGC_SERVICE_S3_BUCKET"
+	//EnvNameServiceS3BucketPublic = "AIGC_SERVICE_S3_BUCKET_PUBLIC"
+	//EnvNameServiceS3DownloadUrl  = "AIGC_SERVICE_S3_DOWNLOAD_URL"
+	//EnvNameServiceS3ProjectName  = "AIGC_SERVICE_S3_PROJECT_NAME"
+	//EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
 
 	// [LDAP 相关]
 	EnvNameLdapHost        = "AIGC_LDAP_HOST"
@@ -116,10 +115,40 @@ const (
 	EnvNameServerDomain            = "AIGC_ADMIN_SERVER_DOMAIN"
 
 	// [datasets]
-	EnvNameDatasetsImage     = "AIGC_DATASETS_IMAGE"
-	EnvNameDatasetsDir       = "AIGC_DATASETS_DIR"
-	EnvNameDatasetsModelName = "AIGC_DATASETS_MODEL_NAME"
-	EnvNameDatasetsDevice    = "AIGC_DATASETS_DEVICE"
+	EnvNameDatasetsImage         = "AIGC_DATASETS_IMAGE"
+	EnvNameDatasetsDir           = "AIGC_DATASETS_DIR"
+	EnvNameDatasetsModelName     = "AIGC_DATASETS_MODEL_NAME"
+	EnvNameDatasetsDevice        = "AIGC_DATASETS_DEVICE"
+	EnvNameDatasetsGpuToleration = "AIGC_DATASETS_GPU_TOLERATION"
+
+	// [runtime]
+	EnvNameRuntimePlatform      = "AIGC_RUNTIME_PLATFORM"
+	EnvNameRuntimeShmSize       = "AIGC_RUNTIME_SHM_SIZE"
+	EnvNameRuntimeK8sHost       = "AIGC_RUNTIME_K8S_HOST"
+	EnvNameRuntimeK8sToken      = "AIGC_RUNTIME_K8S_TOKEN"
+	EnvNameRuntimeK8sConfigPath = "AIGC_RUNTIME_K8S_CONFIG_PATH"
+	EnvNameRuntimeK8sNamespace  = "AIGC_RUNTIME_K8S_NAMESPACE"
+	EnvNameRuntimeK8sInsecure   = "AIGC_RUNTIME_K8S_INSECURE"
+	EnvNameRuntimeK8sVolumeName = "AIGC_RUNTIME_K8S_VOLUME_NAME"
+	EnvNameRuntimePaasHost      = "AIGC_RUNTIME_PAAS_HOST"
+	EnvNameRuntimePaasAccessKey = "AIGC_RUNTIME_PAAS_ACCESS_KEY"
+	EnvNameRuntimePaasSecretKey = "AIGC_RUNTIME_PAAS_SECRET_KEY"
+
+	// [local]
+	EnvNameStorageType = "AIGC_STORAGE_TYPE"
+	//EnvNameLocalDataPath = "AIGC_LOCAL_DATA_PATH"
+
+	DefaultRuntimePlatform      = "docker"
+	DefaultRuntimeShmSize       = "16G"
+	DefaultRuntimeK8sHost       = ""
+	DefaultRuntimeK8sToken      = ""
+	DefaultRuntimeK8sInsecure   = false
+	DefaultRuntimeK8sConfigPath = ""
+	DefaultRuntimeK8sNamespace  = "default"
+	DefaultRuntimeK8sVolumeName = ""
+	DefaultRuntimePaasHost      = ""
+	DefaultRuntimePaasAccessKey = ""
+	DefaultRuntimePaasSecretKey = ""
 
 	// [cronjob]
 	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
@@ -231,7 +260,6 @@ var (
 	serverDebug, enableCORS, corsAllowCredentials, tracerEnable, tracerJaegerLogSpans, mysqlOrmMetrics     bool
 	tracerDrive, tracerJaegerHost, tracerJaegerType                                                        string
 	tracerJaegerParam                                                                                      float64
-	serviceAlarmHost                                                                                       string
 	serverChannelKey                                                                                       string
 
 	// [gpt]
@@ -240,7 +268,7 @@ var (
 	serviceOpenAiHost, serviceOpenAiToken, serviceOpenAiModel, serviceOpenAiOrgId string
 
 	// [s3]
-	serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3BucketPublic, serviceS3Region, serviceS3ProjectName string
+	//serviceS3Host, serviceS3AccessKey, serviceS3SecretKey, serviceS3Bucket, serviceS3BucketPublic, serviceS3Region, serviceS3ProjectName string
 
 	// [ldap]相关
 	ldapHost, ldapBaseDn, ldapBindUser, ldapBindPass, ldapUserFilter, ldapGroupFilter string
@@ -251,20 +279,24 @@ var (
 	// [chat]
 	defaultServiceChatHost = "http://chat-api:8080"
 
+	// datasets
+	datasetsImage, datasetsDir, datasetsModelName, datasetsDevice, datasetsGpuToleration string
+
+	// local
+	storageType, localDataPath string
+
+	// [runtime]
+	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace, runtimeK8sVolumeName string
+	runtimePaasHost, runtimePaasAccessKey, runtimePaasSecretKey                                                                       string
+	runtimeK8sInsecure                                                                                                                bool
+
 	channelId     int
 	corsHeaders   = make(map[string]string, 3)
 	rateBucketNum = 5000000
 	traceId       = logging.TraceId
 
-	// docker
-	workspace       string
-	aigcDataCfsPath string
-
 	// [cronjob]
 	cronJobAuto bool
-
-	// datasets
-	datasetsImage, datasetsDir, datasetsModelName, datasetsDevice string
 
 	goOS                                     = runtime.GOOS
 	goArch                                   = runtime.GOARCH
@@ -340,9 +372,6 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiHost, "service.openai.host", DefaultServiceOpenAiHost, "OpenAI服务地址")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiModel, "service.openai.model", DefaultServiceOpenAiModel, "OpenAI模型名称")
 	rootCmd.PersistentFlags().StringVar(&serviceOpenAiOrgId, "service.openai.org.id", DefaultServiceOpenAiOrgId, "OpenAI OrgId")
-	// [docker]
-	rootCmd.PersistentFlags().StringVar(&aigcDataCfsPath, "docker.datacfspath", "/tmp", "data CFS Path")
-	rootCmd.PersistentFlags().StringVar(&workspace, "docker.workspace", "/tmp", "任务配置文件的存放目录")
 
 	// [s3]
 	//rootCmd.PersistentFlags().StringVar(&serviceS3Host, "service.s3.host", DefaultServiceS3Host, "S3服务地址")
@@ -365,11 +394,28 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&ldapGroupFilter, "ldap.group.filter", DefaultLdapGroupFilter, "LDAP Group Filter")
 	rootCmd.PersistentFlags().StringSliceVar(&ldapUserAttr, "ldap.user.attr", []string{"name", "mail", "userPrincipalName", "displayName", "sAMAccountName"}, "LDAP Attributes")
 
+	// [runtime]
+	rootCmd.PersistentFlags().StringVar(&runtimePlatform, "runtime.platform", DefaultRuntimePlatform, "运行时平台")
+	rootCmd.PersistentFlags().StringVar(&runtimeShmSize, "runtime.shm.size", DefaultRuntimeShmSize, "运行时共享内存大小")
+	rootCmd.PersistentFlags().StringVar(&runtimeK8sHost, "runtime.k8s.host", DefaultRuntimeK8sHost, "K8s地址")
+	rootCmd.PersistentFlags().StringVar(&runtimeK8sToken, "runtime.k8s.token", DefaultRuntimeK8sToken, "K8s Token")
+	rootCmd.PersistentFlags().StringVar(&runtimeK8sConfigPath, "runtime.k8s.config.path", DefaultRuntimeK8sConfigPath, "K8s配置文件路径")
+	rootCmd.PersistentFlags().StringVar(&runtimeK8sNamespace, "runtime.k8s.namespace", DefaultRuntimeK8sNamespace, "K8s命名空间")
+	rootCmd.PersistentFlags().StringVar(&runtimeK8sVolumeName, "runtime.k8s.volume.name", DefaultRuntimeK8sVolumeName, "K8s挂载的存储名")
+	rootCmd.PersistentFlags().BoolVar(&runtimeK8sInsecure, "runtime.k8s.insecure", DefaultRuntimeK8sInsecure, "K8s是否不安全")
+	rootCmd.PersistentFlags().StringVar(&runtimePaasHost, "runtime.paas.host", DefaultRuntimePaasHost, "Paas服务地址")
+	rootCmd.PersistentFlags().StringVar(&runtimePaasAccessKey, "runtime.paas.access.key", DefaultRuntimePaasAccessKey, "Paas AccessKey")
+	rootCmd.PersistentFlags().StringVar(&runtimePaasSecretKey, "runtime.paas.secret.key", DefaultRuntimePaasSecretKey, "Paas SecretKey")
+
 	// [dataset]
 	startCmd.PersistentFlags().StringVar(&datasetsImage, "datasets.image", DefaultDatasetsImage, "datasets image")
 	startCmd.PersistentFlags().StringVar(&datasetsDir, "datasets.dir", DefaultDatasetsDir, "datasets dir")
 	startCmd.PersistentFlags().StringVar(&datasetsModelName, "datasets.model.name", DefaultDatasetsModelName, "datasets model name")
 	startCmd.PersistentFlags().StringVar(&datasetsDevice, "datasets.device", DefaultDatasetsDevice, "datasets device")
+	startCmd.PersistentFlags().StringVar(&datasetsGpuToleration, "datasets.gpu.toleration", "", "datasets gpu toleration")
+
+	// [local]
+	startCmd.PersistentFlags().StringVar(&storageType, "storage.type", "/data/storage", "storage type")
 
 	cronJobStartCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 
@@ -500,6 +546,15 @@ func prepare(ctx context.Context) error {
 	// 实例化仓库
 	store = repository.New(gormDB, logger, traceId, tracer)
 
+	var runtimeOpts []runtime2.CreationOption
+	runtimeOpts = append(runtimeOpts,
+		runtime2.WithHttpClientOptions(clientOpts),
+		runtime2.WithK8sConfigPath(runtimeK8sConfigPath),
+		runtime2.WithK8sToken(runtimeK8sHost, runtimeK8sToken, runtimeK8sInsecure),
+		runtime2.WithShmSize(runtimeShmSize),
+		runtime2.WithK8sVolumeName(runtimeK8sVolumeName),
+		runtime2.WithNamespace(runtimeK8sNamespace),
+	)
 	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
 		FastChat: fastchat.Config{
@@ -521,7 +576,9 @@ func prepare(ctx context.Context) error {
 			Attributes:   ldapUserAttr,
 			Filter:       ldapUserFilter,
 		},
-	}, clientOpts, workspace)
+		Runtime:         runtimeOpts,
+		RuntimePlatform: runtimePlatform,
+	}, clientOpts)
 
 	return err
 }
@@ -576,9 +633,6 @@ func Run() {
 	serverDomain = envString(EnvNameServerDomain, fmt.Sprintf("http://localhost%s", httpAddr))
 	cronJobAuto, _ = strconv.ParseBool(envString(AigcEnvNameCronJobAuto, "true"))
 
-	// 以下是[service] 模块配置
-	serviceAlarmHost = envString(EnvNameServiceAlarmHost, DefaultServiceAlarmHost)
-
 	// [service.gpt]
 	serviceOpenAiEnable, _ = strconv.ParseBool(envString(EnvNameServiceOpenAiEnable, "false"))
 	serviceOpenAiHost = envString(EnvNameServiceOpenAiHost, DefaultServiceOpenAiHost)
@@ -607,9 +661,29 @@ func Run() {
 	//serviceS3Region = envString(EnvNameServiceS3Region, DefaultServiceS3Region)
 	//serviceS3ProjectName = envString(EnvNameServiceS3ProjectName, namespace)
 
-	// [docker]
-	aigcDataCfsPath = envString(EnvNameDockerChatDataCfsPath, "/tmp")
-	workspace = envString(EnvNameDockerWorkspace, "/tmp")
+	// [dataset]
+	datasetsImage = envString(EnvNameDatasetsImage, DefaultDatasetsImage)
+	datasetsDir = envString(EnvNameDatasetsDir, DefaultDatasetsDir)
+	datasetsModelName = envString(EnvNameDatasetsModelName, DefaultDatasetsModelName)
+	datasetsDevice = envString(EnvNameDatasetsDevice, DefaultDatasetsDevice)
+	datasetsGpuToleration = envString(EnvNameDatasetsGpuToleration, "")
+
+	// [local]
+	storageType = envString(EnvNameStorageType, "/data/storage")
+	//localDataPath = envString(EnvNameLocalDataPath, DefaultLocalDataPath)
+
+	// [runtime]
+	runtimePlatform = envString(EnvNameRuntimePlatform, DefaultRuntimePlatform)
+	runtimeShmSize = envString(EnvNameRuntimeShmSize, DefaultRuntimeShmSize)
+	runtimeK8sHost = envString(EnvNameRuntimeK8sHost, DefaultRuntimeK8sHost)
+	runtimeK8sToken = envString(EnvNameRuntimeK8sToken, DefaultRuntimeK8sToken)
+	runtimeK8sConfigPath = envString(EnvNameRuntimeK8sConfigPath, DefaultRuntimeK8sConfigPath)
+	runtimeK8sNamespace = envString(EnvNameRuntimeK8sNamespace, DefaultRuntimeK8sNamespace)
+	runtimeK8sVolumeName = envString(EnvNameRuntimeK8sVolumeName, DefaultRuntimeK8sVolumeName)
+	runtimeK8sInsecure, _ = strconv.ParseBool(envString(EnvNameRuntimeK8sInsecure, strconv.FormatBool(DefaultRuntimeK8sInsecure)))
+	runtimePaasHost = envString(EnvNameRuntimePaasHost, DefaultRuntimePaasHost)
+	runtimePaasAccessKey = envString(EnvNameRuntimePaasAccessKey, DefaultRuntimePaasAccessKey)
+	runtimePaasSecretKey = envString(EnvNameRuntimePaasSecretKey, DefaultRuntimePaasSecretKey)
 
 	if err = rootCmd.Execute(); err != nil {
 		fmt.Println("rootCmd.Execute", err.Error())
@@ -658,19 +732,6 @@ func initConfigFile(configPath string) {
 	//mysqlUser = getStringDefault(cfg.GetString("database", "user"), mysqlUser)
 	//mysqlPassword = getStringDefault(cfg.GetString("database", "password"), mysqlPassword)
 	//mysqlDatabase = getStringDefault(cfg.GetString("database", "database"), mysqlDatabase)
-	//
-	//// [redis]
-	//redisHosts = getStringDefault(cfg.GetString("redis", "hosts"), redisHosts)
-	//redisDb, _ = strconv.Atoi(cfg.GetString("redis", "db"))
-	//redisAuth = getStringDefault(cfg.GetString("redis", "password"), DefaultRedisPassword)
-	//redisPrefix = getStringDefault(cfg.GetString("redis", "prefix"), redisPrefix)
-	//
-	//// [cors]
-	//enableCORS, _ = strconv.ParseBool(cfg.GetString("cors", "allow"))
-	//corsAllowMethods = getStringDefault(cfg.GetString("cors", "methods"), corsAllowMethods)
-	//corsAllowHeaders = getStringDefault(cfg.GetString("cors", "headers"), corsExposeHeaders)
-	//corsAllowOrigins = getStringDefault(cfg.GetString("cors", "origins"), corsAllowOrigins)
-	//corsAllowCredentials, _ = strconv.ParseBool(cfg.GetString("cors", "credentials"))
 	//
 	//// [tracer]
 	//tracerEnable, _ = strconv.ParseBool(cfg.GetString("tracer", "enable"))

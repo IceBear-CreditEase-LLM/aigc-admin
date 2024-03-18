@@ -32,11 +32,12 @@ aigc-admin job -h
 			if err = prepare(cmd.Context()); err != nil {
 				return errors.Wrap(err, "prepare")
 			}
-			fileSvc = files.NewService(logger, traceId, store, apiSvc, files.Config{
-				LocalDataPath: serverStoragePath,
-				ServerUrl:     fmt.Sprintf("%s/storage", serverDomain),
-			})
-			fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, aigcDataCfsPath)
+			fileSvc = files.NewService(logger, traceId, store, apiSvc, []files.CreationOption{
+				files.WithLocalDataPath(serverStoragePath),
+				files.WithServerUrl(fmt.Sprintf("%s/storage", serverDomain)),
+				files.WithStorageType("local"),
+			}...)
+			fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc)
 			return nil
 		},
 	}
@@ -92,7 +93,7 @@ func fineTuningRunningJobLog(ctx context.Context, jobs []types.FineTuningTrainJo
 		//	continue
 		//}
 		var jobLog string
-		jobLog, err = apiSvc.DockerApi().Logs(ctx, job.PaasJobName)
+		jobLog, err = apiSvc.Runtime().GetJobLogs(ctx, job.PaasJobName)
 		if err != nil {
 			_ = level.Warn(logger).Log("msg", "get job pods log failed", "err", err.Error())
 			continue

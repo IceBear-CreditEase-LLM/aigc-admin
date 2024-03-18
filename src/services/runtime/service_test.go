@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -10,22 +9,24 @@ import (
 // var id string = ""
 
 // var s, err = NewK8s(WithK8sConfigPath("./k8sconfig.yaml"), WithNamespace("dev"))
-var token string = `eyJhbGciOiJSUzI1NiIsImtpZCI6InBHSUo1VXhzUzI0VFM1OHY1TFZtQVlKVWdsbUNxQmp5R2pTZ3NNQ2pjaEEifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiQ.rQ-a28Qz1HxPZYMxYUjB51zqAK8M3hs8hvIKbh30r3Z2FpRjIBCqY1I1EKyHXsaTHs4qMD87QviT9v_Ffz8X-DM7xDNw`
-var s, err = NewK8s(WithK8sToken("https://localhost:6443", token, true), WithNamespace("dev"))
-var id string = "dataset-similar-task-1"
-var image = "nginx"
+var token string = `rQ-a28Qz1HxPZYMxYUjB51zqAK8M3hs8hvIKbh30r3Z2FpRjIBboFZaoRTClp9UirJj_SoYs4XOKBcxoDmJAxPuvQXD4QPyR8TrCswIAHeP5DOtovFg_9HgN_0wGRROzmSg6VKR096PljPB0YqOMulZPMyS52qKE8PHy8IA6ggf_CSzzwEesv4Zs9002zf8TOJAH6ZmJyyVut2i1zgg8mnb6eSN1Oe8nHl210bukpaIz2N1l1b5vEzHb3jE-NjKw5Q9EoacL0t-_pFEMsBjNMyMQuXlshb9KIDeRqcEmke9SCqY1I1EKyHXsaTHs4qMD87QviT9v_Ffz8X-DM7xDNw`
+var s, err = NewK8s(WithK8sToken("https://127.0.0.1:6443", token, true), WithNamespace("default"))
+var id string = "ddwded2"
+var image = "dudulu/llmops:v0.5-0314"
 
-func TestService_CreateJob(t *testing.T) {
+func TestService_CreateDeployment(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
 
-	jobName, err := s.CreateDeployment(context.Background(), Config{
-		ServiceName: fmt.Sprintf("dataset-similar-task-%d", 1),
+	ctx := context.Background()
+
+	jobName, err := s.CreateDeployment(ctx, Config{
+		ServiceName: id,
 		Image:       image,
-		Cpu:         0,
-		Memory:      0,
+		Cpu:         1,
+		Memory:      1,
 		GPU:         0,
 		// Command: []string{
 		// "/bin/bash",
@@ -53,7 +54,45 @@ func TestService_CreateJob(t *testing.T) {
 	id = jobName
 }
 
-func TestService_GetJobStatus(t *testing.T) {
+func TestService_CreateJob(t *testing.T) {
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	jobName, err := s.CreateJob(context.Background(), Config{
+		ServiceName: id,
+		Image:       image,
+		Cpu:         1,
+		Memory:      1,
+		GPU:         0,
+		// Command: []string{
+		// "/bin/bash",
+		// "/app/dataset_analyze_similar.sh",
+		// },
+		Command: []string{
+			"/bin/bash",
+			"-c",
+			"echo start sleep ;sleep 10000000;",
+		},
+		EnvVars: []string{
+			"TZ=Asia/Shanghai",
+		},
+		ConfigData: map[string]string{
+			"/app/dataset.json": "{\"instruction\":\"asdfasdfasdf\",\"input\":\"\",\"output\":\"ffff\",\"intent\":\"ffff\",\"document\":\"\",\"question\":\"fadgawevansdf\"}\n",
+			"/app/hello":        "say hello",
+		},
+		Replicas: 1,
+	})
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	t.Log(jobName)
+	id = jobName
+}
+
+func TestService_GetDeploymentStatus(t *testing.T) {
 	status, err := s.GetDeploymentStatus(context.Background(), id)
 	if err != nil {
 		t.Error(err.Error())
@@ -62,7 +101,7 @@ func TestService_GetJobStatus(t *testing.T) {
 	t.Log(status)
 }
 
-func TestService_GetJobLog(t *testing.T) {
+func TestService_GetDeploymentLog(t *testing.T) {
 	log, err := s.GetDeploymentLogs(context.Background(), id)
 	if err != nil {
 		t.Error(err.Error())
@@ -71,10 +110,36 @@ func TestService_GetJobLog(t *testing.T) {
 	t.Log(log)
 }
 
-// func TestService_RemoveJob(t *testing.T) {
-// 	err := s.RemoveJob(context.Background(), id)
-// 	if err != nil {
-// 		t.Error(err.Error())
-// 		return
-// 	}
-// }
+func TestService_GetJobStatus(t *testing.T) {
+	status, err := s.GetJobStatus(context.Background(), id)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	t.Log(status)
+}
+
+func TestService_GetJobLog(t *testing.T) {
+	log, err := s.GetJobLogs(context.Background(), id)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	t.Log(log)
+}
+
+func TestService_RemoveDeployment(t *testing.T) {
+	err := s.RemoveDeployment(context.Background(), id)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+}
+
+func TestService_RemoveJob(t *testing.T) {
+	err := s.RemoveJob(context.Background(), id)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+}
