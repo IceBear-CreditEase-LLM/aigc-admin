@@ -1,4 +1,4 @@
-FROM nvidia/cuda-12.2.2-runtime-ubuntu20.04
+FROM nvidia/cuda:12.2.2-runtime-ubuntu20.04
 
 LABEL maintainer="solacowa@gmail.com"
 
@@ -49,6 +49,11 @@ RUN pip3 install optimum auto-gptq exllamav2
 # RUN git clone https://github.com/Dao-AILab/flash-attention && \
 #     cd flash-attention/csrc/layer_norm && \
 #     pip3 install .
+COPY pip.conf /root/.config/pip/
 
 WORKDIR /app/
+
+COPY ./requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
 COPY . /app/

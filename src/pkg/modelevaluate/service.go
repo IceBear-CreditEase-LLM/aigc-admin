@@ -116,11 +116,19 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 		return errors.New("有未结束的评测任务，请稍后再试！")
 	}
 
-	//获取文件s3地址
-	fileInfo, err := s.repository.Files().FindFileByFileId(ctx, req.FileId)
-	if err != nil {
-		_ = level.Error(logger).Log("s.repository.Files", "FindFileByFileId", "err", err.Error())
-		return
+	var dataSize int
+	var fileId, s3Url string
+	if req.EvalTargetType != string(types.EvaluateTargetTypeFive) {
+		//获取文件s3地址
+		fileInfo, err := s.repository.Files().FindFileByFileId(ctx, req.FileId)
+		if err != nil {
+			_ = level.Error(logger).Log("s.repository.Files", "FindFileByFileId", "err", err.Error())
+			return err
+		}
+
+		dataSize = fileInfo.LineCount
+		fileId = fileInfo.FileID
+		s3Url = fileInfo.S3Url
 	}
 
 	modelInfo, err := s.repository.Model().GetModel(ctx, uint(req.ModelId))
@@ -168,10 +176,10 @@ func (s *service) Create(ctx context.Context, req createRequest) (err error) {
 		EvalTargetType: req.EvalTargetType,
 		MaxLength:      req.MaxLength,
 		BatchSize:      req.BatchSize,
-		DataSize:       fileInfo.LineCount,
+		DataSize:       dataSize,
 		DataType:       string(types.EvaluateDataTypeCustom),
-		DataFileId:     fileInfo.FileID,
-		DataUrl:        fileInfo.S3Url,
+		DataFileId:     fileId,
+		DataUrl:        s3Url,
 		Remark:         req.Remark,
 		CompleteRate:   0,
 		OperatorEmail:  operatorEmail,

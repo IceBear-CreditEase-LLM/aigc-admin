@@ -27,7 +27,7 @@ func initSvc() Service {
 	}
 	fileSvc := files.NewService(tests.Logger, "", tests.Store, apiSvc, fileOptions...)
 	return New("", tests.Logger, tests.Store, apiSvc, fileSvc,
-		WithDatasetImage("reg.caiwu.corp/aigc/llmops:v0.5-0314"),
+		WithDatasetImage("dudulu/llmops:v0.8-0314"),
 		WithDatasetModel("uer/sbert-base-chinese-nli"),
 		WithCallbackHost("http://localhost:8080"),
 		WithDatasetGpuTolerationValue("cpu-aigc-model"),
