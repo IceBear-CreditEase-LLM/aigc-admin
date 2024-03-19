@@ -115,8 +115,10 @@ func start(ctx context.Context) (err error) {
 		files.WithStorageType("local"),
 	}...)
 	channelSvc = channels.NewService(logger, traceId, store, apiSvc)
-	modelSvc = models.NewService(logger, traceId, store, apiSvc)
-	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc)
+	modelSvc = models.NewService(logger, traceId, store, apiSvc,
+		models.WithGpuTolerationValue(datasetsGpuToleration),
+	)
+	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, finetuning.WithGpuTolerationValue(datasetsGpuToleration))
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)
 	datasetSvc = datasets.New(logger, traceId, store)
 	toolsSvc = tools.New(logger, traceId, store)

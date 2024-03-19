@@ -21,7 +21,10 @@ RUN apt-get install -y Python3.10-dev
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /app/
-COPY . /app/
 
+COPY requirements.txt /app/requirements.txt
 RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 RUN pip3 install -r requirements.txt
+
+COPY . /app/
+

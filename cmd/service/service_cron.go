@@ -85,7 +85,7 @@ func cronStart(ctx context.Context, args []string) (err error) {
 		files.WithServerUrl(fmt.Sprintf("%s/storage", serverDomain)),
 		files.WithStorageType("local"),
 	}...)
-	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc)
+	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, finetuning.WithGpuTolerationValue(datasetsGpuToleration))
 
 	crontab := cron.New(cron.WithSeconds()) //精确到秒
 

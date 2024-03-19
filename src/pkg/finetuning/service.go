@@ -13,6 +13,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/runtime"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/util"
+	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/google/uuid"
@@ -60,6 +61,22 @@ type Service interface {
 	_createFineTuningJob(ctx context.Context, jobId string) (err error)
 }
 
+// CreationOptions is the options for the faceswap service.
+type CreationOptions struct {
+	httpClientOpts     []kithttp.ClientOption
+	gpuTolerationValue string
+}
+
+// CreationOption is a creation option for the faceswap service.
+type CreationOption func(*CreationOptions)
+
+// WithGpuTolerationValue returns a CreationOption  that sets the dataset drive.
+func WithGpuTolerationValue(gpuTolerationValue string) CreationOption {
+	return func(co *CreationOptions) {
+		co.gpuTolerationValue = gpuTolerationValue
+	}
+}
+
 type service struct {
 	traceId string
 	logger  log.Logger
@@ -67,6 +84,7 @@ type service struct {
 	api     services.Service
 	mu      sync.Mutex
 	fileSvc files.Service
+	options *CreationOptions
 }
 
 func (s *service) _createJob(ctx context.Context, tenantId, channelId uint, trainingFileId, baseModel, suffix, validationFile string, epochs int) (res jobResult, err error) {
@@ -326,7 +344,6 @@ func (s *service) UpdateJobFinishedStatus(ctx context.Context, fineTuningJob str
 		ModelName:    jobInfo.FineTunedModel,
 		//BaseModelName: jobInfo.BaseModel,
 		MaxTokens:    jobInfo.ModelMaxLength,
-		IsPrivate:    true,
 		IsFineTuning: true,
 		Enabled:      false,
 		Remark:       jobInfo.Remark,
@@ -409,23 +426,25 @@ func (s *service) _createFineTuningJob(ctx context.Context, jobId string) (err e
 
 	serviceName := strings.ReplaceAll(strings.ReplaceAll(jobInfo.FineTunedModel, "::", "-"), ":", "-")
 	serviceName = strings.ReplaceAll(serviceName, ".", "-")
+	gpuTolerationValue := s.options.gpuTolerationValue
 	var jobName string
-	jobName, err = s.api.Runtime().CreateDeployment(ctx, runtime.Config{
+	jobName, err = s.api.Runtime().CreateJob(ctx, runtime.Config{
 		ServiceName: serviceName,
 		Image:       jobInfo.Template.TrainImage,
 		Cpu:         0,
 		Memory:      0,
+		GPU:         jobInfo.ProcPerNode,
 		Command: []string{
-			"/bin/sh",
-			"-c",
+			"/bin/bash",
 			"/app/train.sh",
 		},
 		EnvVars: nil,
 		Volumes: nil,
 		ConfigData: map[string]string{
-			"train.sh": tplContent,
+			"/app/train.sh": tplContent,
 		},
-		Replicas: 1,
+		Replicas:           1,
+		GpuTolerationValue: gpuTolerationValue,
 	})
 	if err != nil {
 		err = errors.Wrap(err, "docker api create")
@@ -690,13 +709,19 @@ func (s *service) _fileConvertAlpaca(ctx context.Context, modelName, sourceS3Url
 	return fileUrl, nil
 }
 
-func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc services.Service) Service {
+func New(traceId string, logger log.Logger, store repository.Repository, fileSvc files.Service, apiSvc services.Service, opts ...CreationOption) Service {
+	logger = log.With(logger, "service", "finetuning")
+	options := &CreationOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
 	return &service{
 		traceId: traceId,
 		logger:  logger,
 		store:   store,
 		api:     apiSvc,
 		fileSvc: fileSvc,
+		options: options,
 	}
 }
 

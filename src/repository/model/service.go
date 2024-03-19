@@ -11,13 +11,15 @@ import (
 type Middleware func(Service) Service
 
 type ListModelRequest struct {
-	Page         int    `json:"page"`
-	PageSize     int    `json:"pageSize"`
-	ModelName    string `json:"modelName"`
-	Enabled      *bool  `json:"enabled"`
-	IsPrivate    *bool  `json:"isPrivate"`
-	IsFineTuning *bool  `json:"isFineTuning"`
-	ProviderName string `json:"providerName"`
+	Page          int    `json:"page"`
+	PageSize      int    `json:"pageSize"`
+	ModelName     string `json:"modelName"`
+	Enabled       *bool  `json:"enabled"`
+	IsPrivate     *bool  `json:"isPrivate"`
+	IsFineTuning  *bool  `json:"isFineTuning"`
+	ProviderName  string `json:"providerName"`
+	ModelType     string `json:"modelType"`
+	BaseModelName string `json:"baseModelName"` // null, notNull, 为空时，查全部
 }
 
 type ListEvalRequest struct {

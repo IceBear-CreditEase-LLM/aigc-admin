@@ -10,12 +10,13 @@ import (
 
 type (
 	Model struct {
-		Id           uint      `json:"id"`
-		ProviderName string    `json:"providerName"`
-		ModelName    string    `json:"modelName"`
-		ModelType    string    `json:"modelType"`
-		MaxTokens    int       `json:"maxTokens"`
-		IsPrivate    bool      `json:"isPrivate"`
+		Id            uint   `json:"id"`
+		BaseModelName string `json:"baseModelName"`
+		ProviderName  string `json:"providerName"`
+		ModelName     string `json:"modelName"`
+		ModelType     string `json:"modelType"`
+		MaxTokens     int    `json:"maxTokens"`
+		//IsPrivate    bool      `json:"isPrivate"`
 		IsFineTuning bool      `json:"isFineTuning"`
 		Enabled      bool      `json:"enabled"`
 		Remark       string    `json:"remark"`
@@ -27,6 +28,13 @@ type (
 		JobId        string    `json:"jobId"`
 		LastOperator string    `json:"lastOperator"`
 		Parameters   float64   `json:"parameters"`
+		Replicas     int       `json:"replicas"`     //并行/实例数量
+		Label        string    `json:"label"`        //调度标签
+		K8sCluster   string    `json:"k8sCluster"`   //k8s集群
+		InferredType string    `json:"inferredType"` //推理类型cpu,gpu
+		Gpu          int       `json:"gpu"`          //GPU数
+		Cpu          int       `json:"cpu"`          //CPU核数
+		Memory       int       `json:"memory"`       //内存G
 	}
 
 	Tenant struct {
@@ -35,33 +43,51 @@ type (
 	}
 
 	CreateModelRequest struct {
-		ModelName    string  `json:"modelName" validate:"required"`
-		MaxTokens    int     `json:"maxTokens" validate:"required"`
-		TenantId     []uint  `json:"tenantId"`
-		IsPrivate    bool    `json:"isPrivate"`
+		ModelName     string `json:"modelName" validate:"required"`
+		ModelType     string `json:"modelType" validate:"required"`
+		BaseModelName string `json:"baseModelName"`
+		MaxTokens     int    `json:"maxTokens" validate:"required"`
+		TenantId      []uint `json:"tenantId"`
+		//IsPrivate    bool    `json:"isPrivate"`
 		IsFineTuning bool    `json:"isFineTuning"`
 		Enabled      bool    `json:"enabled"`
 		Remark       string  `json:"remark"`
 		ProviderName string  `json:"providerName"`
 		Email        string  `json:"email"`
 		Parameters   float64 `json:"parameters"`
+		Replicas     int     `json:"replicas"`     //并行/实例数量
+		Label        string  `json:"label"`        //调度标签
+		K8sCluster   string  `json:"k8sCluster"`   //k8s集群
+		InferredType string  `json:"inferredType"` //推理类型cpu,gpu
+		Gpu          int     `json:"gpu"`          //GPU数
+		Cpu          int     `json:"cpu"`          //CPU核数
+		Memory       int     `json:"memory"`       //内存G
 	}
 
 	UpdateModelRequest struct {
-		Id        uint    `json:"id" validate:"required"`
-		TenantId  *[]uint `json:"tenantId"`
-		MaxTokens *int    `json:"maxTokens"`
-		Enabled   *bool   `json:"enabled"`
-		Remark    *string `json:"remark"`
+		Id            uint    `json:"id" validate:"required"`
+		TenantId      *[]uint `json:"tenantId"`
+		MaxTokens     *int    `json:"maxTokens"`
+		Enabled       *bool   `json:"enabled"`
+		Remark        *string `json:"remark"`
+		BaseModelName string  `json:"baseModelName"`
+		Replicas      int     `json:"replicas"`     //并行/实例数量
+		Label         string  `json:"label"`        //调度标签
+		K8sCluster    string  `json:"k8sCluster"`   //k8s集群
+		InferredType  string  `json:"inferredType"` //推理类型cpu,gpu
+		Gpu           int     `json:"gpu"`          //GPU数
+		Cpu           int     `json:"cpu"`          //CPU核数
+		Memory        int     `json:"memory"`       //内存G
 	}
 	ListModelRequest struct {
-		Page         int    `json:"page"`
-		PageSize     int    `json:"pageSize"`
-		ModelName    string `json:"modelName,omitempty"`
-		Enabled      *bool  `json:"enabled,omitempty"`
-		IsPrivate    *bool  `json:"isPrivate,omitempty"`
+		Page      int    `json:"page"`
+		PageSize  int    `json:"pageSize"`
+		ModelName string `json:"modelName,omitempty"`
+		Enabled   *bool  `json:"enabled,omitempty"`
+		//IsPrivate    *bool  `json:"isPrivate,omitempty"`
 		IsFineTuning *bool  `json:"isFineTuning,omitempty"`
 		ProviderName string `json:"providerName"`
+		ModelType    string `json:"modelType"`
 	}
 	ListModelResponse struct {
 		Models []Model `json:"list"`
@@ -113,15 +139,14 @@ type (
 		Id           uint   `json:"id"`
 		Replicas     int    `json:"replicas" validate:"gte=1"`
 		Label        string `json:"label" validate:"required"`
-		Gpu          int    `json:"gpu" validate:"gte=1"`
+		InferredType string `json:"inferredType"` //推理类型
+		Gpu          int    `json:"gpu"`          //gpu 数量
+		Cpu          int    `json:"cpu"`          //cpu 数量
 		Quantization string `json:"quantization"`
 		Vllm         bool   `json:"vllm"`
 		// 指定每个 GPU 用于存储模型权重的最大内存。这允许它为激活分配更多内存，因此您可以使用更长的上下文长度或更大的批量大小。
 		MaxGpuMemory int    `json:"maxGpuMemory"`
-		ChannelId    uint   `json:"channelId"`
-		Cpu          int    `json:"cpu"`
-		InferredType string `json:"inferredType"`
-		Cluster      string `json:"cluster"`
+		K8sCluster   string `json:"k8sCluster"` //k8s集群
 	}
 )
 
@@ -229,14 +254,7 @@ func makeGetModelEndpoint(s Service) endpoint.Endpoint {
 
 func makeDeployModelEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-
-		channelId, ok := ctx.Value(middleware.ContextKeyChannelId).(int)
-		if !ok {
-			return nil, encode.ErrChatChannelNotFound.Error()
-		}
-
 		req := request.(ModelDeployRequest)
-		req.ChannelId = uint(channelId)
 		err = s.Deploy(ctx, req)
 		resp := struct{}{}
 		return encode.Response{

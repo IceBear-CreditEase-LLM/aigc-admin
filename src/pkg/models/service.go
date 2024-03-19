@@ -55,8 +55,9 @@ type Service interface {
 
 // CreationOptions is the options for the faceswap service.
 type CreationOptions struct {
-	httpClientOpts  []kithttp.ClientOption
-	runtimePlatform string
+	httpClientOpts     []kithttp.ClientOption
+	runtimePlatform    string
+	gpuTolerationValue string
 }
 
 // CreationOption is a creation option for the faceswap service.
@@ -76,11 +77,19 @@ func WithRuntimePlatform(platform string) CreationOption {
 	}
 }
 
+// WithGpuTolerationValue returns a CreationOption  that sets the dataset drive.
+func WithGpuTolerationValue(gpuTolerationValue string) CreationOption {
+	return func(co *CreationOptions) {
+		co.gpuTolerationValue = gpuTolerationValue
+	}
+}
+
 type service struct {
 	logger  log.Logger
 	traceId string
 	store   repository.Repository
 	apiSvc  services.Service
+	options *CreationOptions
 }
 
 const (
@@ -257,11 +266,6 @@ func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 			}
 		}
 	}
-	if !channelModel.IsPrivate {
-		// 公有模型不需要部署
-		_ = level.Warn(logger).Log("msg", "public model not need undeploy", "modelName", channelModel.ModelName)
-		return encode.Invalid.Wrap(errors.Errorf("public model not need undeploy, model:%s", channelModel.ModelName))
-	}
 
 	err = s.apiSvc.Runtime().RemoveDeployment(ctx, channelModel.ModelDeploy.RuntimeName)
 	if err != nil {
@@ -293,64 +297,34 @@ func (s *service) Undeploy(ctx context.Context, id uint) (err error) {
 }
 
 func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error) {
-	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId))
-
-	channelModel, err := s.store.Model().GetModel(ctx, req.Id)
-
+	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "Deploy")
+	m, err := s.store.Model().GetModel(ctx, req.Id)
 	if err != nil {
-		_ = level.Warn(logger).Log("msg", "find model info failed", "err", err.Error())
-		return errors.Wrap(err, "find model info failed")
+		_ = level.Error(logger).Log("store.Model", "GetModel", "err", err.Error(), "request", fmt.Sprintf("%+v", req))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return encode.InvalidParams.Wrap(errors.New("模型不存在"))
+		}
+		return encode.ErrSystem.Wrap(errors.New("查询模型异常"))
+	}
+	if m.ProviderName.String() != types.ModelProviderLocalAI.String() {
+		// 非本地模型不需要部署
+		_ = level.Warn(logger).Log("msg", "non-local model not need deploy", "modelName", m.ModelName)
+		return encode.Invalid.Wrap(errors.Errorf("non-local model not need deploy, model:%s", m.ModelName))
+	}
+	if m.BaseModelName != "" {
+		// 别名模型不需要部署
+		_ = level.Warn(logger).Log("msg", "BaseModelName model not need deploy", "modelName", m.ModelName)
+		return encode.Invalid.Wrap(errors.Errorf("BaseModelName model not need deploy, model:%s", m.ModelName))
 	}
 
-	channelInfo, err := s.store.Channel().FindChannelById(ctx, req.ChannelId, "Tenant.Models.ModelDeploy", "ChannelModels")
-	if err != nil {
-		_ = level.Warn(logger).Log("msg", "find channel info failed", "err", err.Error())
-		return
-	}
-	//var channelModel types.Models
-	//
-	//if channelInfo.TenantId == 1 {
-	//	channelModel, err = s.store.Model().FindByModelId(ctx, req.ModelId)
-	//	if err != nil {
-	//		_ = level.Warn(logger).Log("msg", "find model info failed", "err", err.Error())
-	//		return errors.Wrap(err, "find model info failed")
-	//	}
-	//} else {
-	//	for _, model := range channelInfo.Tenant.Models {
-	//		if model.ModelName == req.ModelId {
-	//			channelModel = model
-	//			break
-	//		}
-	//	}
-	//}
-
-	// 判断是否已经部署
-	//if channelModel.Enabled {
-	//	_ = level.Warn(logger).Log("msg", "channel model already deployed", "modelId", modelId)
-	//	err = errors.New("channel model already deployed")
-	//	return
-	//}
-
-	// 判断是否是私有模型
-	if !channelModel.IsPrivate {
-		_ = level.Warn(logger).Log("msg", "channel model is not private", "modelId", req.Id)
-		err = errors.New("channel model is not private")
-		return
-	}
-
-	if channelModel.ModelDeploy.ID > 0 {
-		_ = level.Warn(logger).Log("msg", "channel model already deployed", "modelId", req.Id)
-		err = errors.New("channel model already deployed")
-		return
-	}
-	var baseModelName = channelModel.ModelName
-	serviceName := strings.ReplaceAll(strings.ReplaceAll(channelModel.ModelName, "::", "-"), ":", "-")
+	var baseModelName = m.ModelName
+	serviceName := strings.ReplaceAll(strings.ReplaceAll(m.ModelName, "::", "-"), ":", "-")
 	serviceName = strings.ReplaceAll(serviceName, ".", "-")
 	var modelPath = fmt.Sprintf("/data/base-model/%s", serviceName)
 	// 判断是否是微调模型
-	if channelModel.IsFineTuning {
+	if m.IsFineTuning {
 		modelPath = fmt.Sprintf("/data/ft-model/%s", serviceName)
-		trainJobInfo, err := s.store.FineTuning().FindFineTunedModel(ctx, channelModel.ModelName)
+		trainJobInfo, err := s.store.FineTuning().FindFineTunedModel(ctx, m.ModelName)
 		if err != nil {
 			_ = level.Warn(logger).Log("msg", "find fine tuning job failed", "err", err.Error())
 			return errors.Wrap(err, "find fine tuning job failed")
@@ -373,7 +347,7 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 	var port = 8080
 
 	template, err := util.EncodeTemplate("start.sh", inferenceTemplate.Content, map[string]interface{}{
-		"modelName":    channelModel.ModelName,
+		"modelName":    m.ModelName,
 		"modelPath":    modelPath,
 		"port":         port,
 		"quantization": req.Quantization,
@@ -382,7 +356,7 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 		"vllm":         req.Vllm,
 		"cpu":          req.Cpu,
 		"inferredType": req.InferredType,
-		"Cluster":      req.Cluster,
+		"Cluster":      req.K8sCluster,
 	})
 	if err != nil {
 		err = errors.Wrap(err, "encode template failed")
@@ -396,7 +370,7 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 	for i := 0; i < 10; i++ {
 		if randomPort == 0 {
 			randomPort = rand.Intn(60000-50000+1) + 50000
-			addr := fmt.Sprintf("127.0.0.1:%d", randomPort)
+			addr := fmt.Sprintf("0.0.0.0:%d", randomPort)
 			var listener net.Listener
 			listener, err = net.Listen("tcp", addr)
 			if err == nil {
@@ -411,6 +385,11 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 		return
 	}
 
+	gpuTolerationValue := req.Label
+	if gpuTolerationValue == "" {
+		gpuTolerationValue = "nvidia.com/gpu"
+	}
+
 	// 生成部署命令
 	cid, err := s.apiSvc.Runtime().CreateDeployment(ctx, runtime.Config{
 		ServiceName: serviceName,
@@ -421,7 +400,8 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 		ConfigData: map[string]string{
 			"/app/start.sh": template,
 		},
-		Replicas: int32(req.Replicas),
+		GpuTolerationValue: gpuTolerationValue,
+		Replicas:           int32(req.Replicas),
 	})
 
 	if err != nil {
@@ -431,7 +411,7 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 
 	// 插入部署表
 	if err = s.store.Model().CreateDeploy(ctx, &types.ModelDeploy{
-		ModelID:     channelModel.ID,
+		ModelID:     m.ID,
 		ModelPath:   modelPath,
 		Status:      types.ModelDeployStatusPending.String(),
 		RuntimeName: cid,
@@ -440,21 +420,6 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 		err = errors.Wrap(err, "create channel model deploy failed")
 		return
 	}
-
-	// 如果channel 没有的话，授权给当前这个channel
-	var channelModelExists bool
-	for _, model := range channelInfo.ChannelModels {
-		if model.ModelName == channelModel.ModelName {
-			channelModelExists = true
-			break
-		}
-	}
-	if !channelModelExists {
-		if err = s.store.Channel().AddChannelModels(ctx, req.ChannelId, &channelModel); err != nil {
-			_ = level.Warn(logger).Log("msg", "add channel model failed", "err", err.Error())
-		}
-	}
-
 	_ = level.Info(logger).Log("msg", "deploy model success")
 	return
 }
@@ -462,13 +427,14 @@ func (s *service) Deploy(ctx context.Context, req ModelDeployRequest) (err error
 func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res ListModelResponse, err error) {
 	logger := log.With(s.logger, s.traceId, ctx.Value(s.traceId), "method", "ListModels")
 	req := model.ListModelRequest{
-		Page:         request.Page,
-		PageSize:     request.PageSize,
-		Enabled:      request.Enabled,
-		IsPrivate:    request.IsPrivate,
+		Page:     request.Page,
+		PageSize: request.PageSize,
+		Enabled:  request.Enabled,
+		//IsPrivate:    request.IsPrivate,
 		IsFineTuning: request.IsFineTuning,
 		ModelName:    request.ModelName,
 		ProviderName: request.ProviderName,
+		ModelType:    request.ModelType,
 	}
 	models, total, err := s.store.Model().ListModels(ctx, req)
 	if err != nil {
@@ -502,7 +468,6 @@ func (s *service) CreateModel(ctx context.Context, request CreateModelRequest) (
 		ModelType:    types.ModelTypeTextGeneration,
 		ModelName:    request.ModelName,
 		MaxTokens:    request.MaxTokens,
-		IsPrivate:    request.IsPrivate,
 		IsFineTuning: request.IsFineTuning,
 		Enabled:      request.Enabled,
 		Remark:       request.Remark,
@@ -572,7 +537,6 @@ func convert(data *types.Models) Model {
 		ModelType:    string(data.ModelType),
 		ModelName:    data.ModelName,
 		MaxTokens:    data.MaxTokens,
-		IsPrivate:    data.IsPrivate,
 		IsFineTuning: data.IsFineTuning,
 		Enabled:      data.Enabled,
 		Remark:       data.Remark,
@@ -610,39 +574,30 @@ func convert(data *types.Models) Model {
 
 func providerName(m string) types.ModelProvider {
 	openAIModels := []string{
-		"gpt-4-1106-preview",
-		"gpt-4-vision-preview",
-		"gpt-4",
-		"gpt-4-32k",
-		"gpt-4-0613",
-		"gpt-4-32k-0613",
-		"gpt-4-0314",
-		"gpt-4-32k-0314",
-		"gpt-3.5-turbo-1106",
-		"gpt-3.5-turbo",
-		"gpt-3.5-turbo-16k",
-		"gpt-3.5-turbo-instruct",
-		"gpt-3.5-turbo-0613",
-		"gpt-3.5-turbo-16k-0613",
-		"gpt-3.5-turbo-0301",
-		"text-davinci-003",
-		"text-davinci-002",
-		"code-davinci-002",
+		"gpt-",
+		"text-davinci",
+		"text-embedding-",
 	}
 	for _, v := range openAIModels {
-		if strings.EqualFold(v, m) {
+		if strings.HasPrefix(v, m) {
 			return types.ModelProviderOpenAI
 		}
 	}
 	return types.ModelProviderLocalAI
 }
 
-func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service) Service {
+func NewService(logger log.Logger, traceId string, store repository.Repository, apiSvc services.Service, opts ...CreationOption) Service {
+	logger = log.With(logger, "service", "models")
+	options := &CreationOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
 	return &service{
 		logger:  log.With(logger, "service", "models"),
 		traceId: traceId,
 		store:   store,
 		apiSvc:  apiSvc,
+		options: options,
 	}
 }
 

@@ -160,7 +160,7 @@ func (s *service) ListTool(ctx context.Context, tenantId uint, assistantId, name
 	limit, offset := page.Limit(pageNum, pageSize)
 	var toolIDs []uint
 	if err = db.Table("assistant_tool_associations").Where("assistant_id = ?", assistant.ID).
-		Order("updated_at DESC").
+		Order("tool_id DESC").
 		Count(&total).Offset(offset).Limit(limit).Pluck("tool_id", &toolIDs).Error; err != nil {
 		return
 	}

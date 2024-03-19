@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	kithttp "github.com/go-kit/kit/transport/http"
-	"io"
-
 	"github.com/pkg/errors"
+	"io"
 	corev1 "k8s.io/api/core/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -148,12 +147,12 @@ func (s *k8s) CreateJob(ctx context.Context, config Config) (jobName string, err
 		return "", err
 	}
 
-	// unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&job)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// jobB, _ := yaml.Marshal(unstructuredObj)
-	// fmt.Println(string(jobB))
+	//unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&job)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//jobB, _ := yaml.Marshal(unstructuredObj)
+	//fmt.Println(string(jobB))
 
 	_, err = s.k8sClient.BatchV1().Jobs(config.namespace).Create(ctx, &job, v1.CreateOptions{})
 	if err != nil {

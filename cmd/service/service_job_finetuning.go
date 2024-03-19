@@ -37,7 +37,7 @@ aigc-admin job -h
 				files.WithServerUrl(fmt.Sprintf("%s/storage", serverDomain)),
 				files.WithStorageType("local"),
 			}...)
-			fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc)
+			fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, finetuning.WithGpuTolerationValue(datasetsGpuToleration))
 			return nil
 		},
 	}

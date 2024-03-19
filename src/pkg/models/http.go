@@ -110,9 +110,9 @@ func decodeCreateModelRequest(ctx context.Context, r *http.Request) (interface{}
 		return nil, encode.InvalidParams.Wrap(err)
 	}
 
-	if req.IsPrivate && req.Parameters == 0 {
-		return nil, encode.InvalidParams.Wrap(errors.New("私有模型，参数量不能为空"))
-	}
+	//if req.IsPrivate && req.Parameters == 0 {
+	//	return nil, encode.InvalidParams.Wrap(errors.New("私有模型，参数量不能为空"))
+	//}
 	return req, nil
 }
 
@@ -152,14 +152,14 @@ func decodeListModelRequest(ctx context.Context, r *http.Request) (interface{}, 
 		}
 		req.Enabled = &b
 	}
-	isPrivate := r.URL.Query().Get("isPrivate")
-	if isPrivate != "" {
-		b, err := strconv.ParseBool(isPrivate)
-		if err != nil {
-			return nil, encode.InvalidParams.Wrap(err)
-		}
-		req.IsPrivate = &b
-	}
+	//isPrivate := r.URL.Query().Get("isPrivate")
+	//if isPrivate != "" {
+	//	b, err := strconv.ParseBool(isPrivate)
+	//	if err != nil {
+	//		return nil, encode.InvalidParams.Wrap(err)
+	//	}
+	//	req.IsPrivate = &b
+	//}
 	isFineTuning := r.URL.Query().Get("isFineTuning")
 	if isFineTuning != "" {
 		b, err := strconv.ParseBool(isFineTuning)

@@ -32,6 +32,8 @@ WORKDIR /app
 #ENV CUDA_ROOT=$CUDA_HOME
 #ENV PATH=$PATH:$CUDA_ROOT/bin:$HOME/bin
 
+COPY requirements.txt /app/requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
 COPY . /app
 
-RUN pip3 install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
