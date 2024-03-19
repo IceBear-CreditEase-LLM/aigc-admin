@@ -38,7 +38,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /go/bin/aigc-admin -ldflag
 # 运行镜像
 FROM alpine:latest
 # ffmpeg 用于音频处理
-RUN apk add --no-cache ffmpeg
+#RUN apk add --no-cache ffmpeg
 
 COPY --from=build-env /go/bin/aigc-admin /usr/local/aigc-admin/bin/aigc-admin
 

@@ -11,6 +11,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/finetuning"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/llmeval"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/model"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/modelevaluate"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/sys"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/repository/tools"
 	"gorm.io/gorm"
@@ -48,22 +49,25 @@ type Repository interface {
 	Tenants() tenant.Service
 	// DatasetTask 数据集任务模块
 	DatasetTask() datasettask.Service
+	// ModelEvaluate 模型评测
+	ModelEvaluate() modelevaluate.Service
 }
 
 type repository struct {
-	chatSvc        chat.Service
-	channelSvc     channel.Service
-	modelSvc       model.Service
-	authSvc        auth.Service
-	filesSvc       files.Service
-	fineTuningSvc  finetuning.Service
-	sysSvc         sys.Service
-	datasetSvc     datasets.Service
-	toolsSvc       tools.Service
-	assistantsSvc  assistants.Service
-	llmEvalSvc     llmeval.Service
-	tenantSvc      tenant.Service
-	datasetTaskSvc datasettask.Service
+	chatSvc          chat.Service
+	channelSvc       channel.Service
+	modelSvc         model.Service
+	authSvc          auth.Service
+	filesSvc         files.Service
+	fineTuningSvc    finetuning.Service
+	sysSvc           sys.Service
+	datasetSvc       datasets.Service
+	toolsSvc         tools.Service
+	assistantsSvc    assistants.Service
+	llmEvalSvc       llmeval.Service
+	tenantSvc        tenant.Service
+	datasetTaskSvc   datasettask.Service
+	modelEvaluateSvc modelevaluate.Service
 }
 
 func (r *repository) DatasetTask() datasettask.Service {
@@ -118,6 +122,10 @@ func (r *repository) Sys() sys.Service {
 	return r.sysSvc
 }
 
+func (r *repository) ModelEvaluate() modelevaluate.Service {
+	return r.modelEvaluateSvc
+}
+
 var _ Repository = (*repository)(nil)
 
 func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Tracer) Repository {
@@ -134,6 +142,7 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 	llmEvalSvc := llmeval.New(db)
 	tenantSvc := tenant.New(db)
 	datasetTaskSvc := datasettask.New(db)
+	modelEvaluateSvc := modelevaluate.New(db)
 
 	if logger != nil {
 		chatSvc = chat.NewLogging(logger, traceId)(chatSvc)
@@ -148,6 +157,7 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		llmEvalSvc = llmeval.NewLogging(logger, traceId)(llmEvalSvc)
 		tenantSvc = tenant.NewLogging(logger, traceId)(tenantSvc)
 		datasetTaskSvc = datasettask.NewLogging(logger, traceId)(datasetTaskSvc)
+		modelEvaluateSvc = modelevaluate.NewLogging(logger, traceId)(modelEvaluateSvc)
 	}
 
 	if tracer != nil {
@@ -163,21 +173,23 @@ func New(db *gorm.DB, logger log.Logger, traceId string, tracer opentracing.Trac
 		llmEvalSvc = llmeval.NewTracing(tracer)(llmEvalSvc)
 		tenantSvc = tenant.NewTracing(tracer)(tenantSvc)
 		datasetTaskSvc = datasettask.NewTracing(tracer)(datasetTaskSvc)
+		modelEvaluateSvc = modelevaluate.NewTracing(tracer)(modelEvaluateSvc)
 	}
 
 	return &repository{
-		chatSvc:        chatSvc,
-		channelSvc:     channelSvc,
-		modelSvc:       modelSvc,
-		authSvc:        authSvc,
-		filesSvc:       filesSvc,
-		fineTuningSvc:  fineTuningSvc,
-		sysSvc:         sysSvc,
-		datasetSvc:     datasetSvc,
-		toolsSvc:       toolsSvc,
-		assistantsSvc:  assistantsSvc,
-		llmEvalSvc:     llmEvalSvc,
-		tenantSvc:      tenantSvc,
-		datasetTaskSvc: datasetTaskSvc,
+		chatSvc:          chatSvc,
+		channelSvc:       channelSvc,
+		modelSvc:         modelSvc,
+		authSvc:          authSvc,
+		filesSvc:         filesSvc,
+		fineTuningSvc:    fineTuningSvc,
+		sysSvc:           sysSvc,
+		datasetSvc:       datasetSvc,
+		toolsSvc:         toolsSvc,
+		assistantsSvc:    assistantsSvc,
+		llmEvalSvc:       llmEvalSvc,
+		tenantSvc:        tenantSvc,
+		datasetTaskSvc:   datasetTaskSvc,
+		modelEvaluateSvc: modelEvaluateSvc,
 	}
 }

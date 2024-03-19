@@ -1,18 +1,13 @@
 #FROM nvidia/cuda:11.0.3-cudnn8-devel-ubuntu20.04
-FROM reg.creditease.corp/basic/other:nvidia-cuda-12.2.2-runtime-ubuntu20.04
+FROM nvidia/cuda:12.2.2-runtime-ubuntu20.04
 
-LABEL maintainer="congwang@creditease.cn"
+LABEL maintainer="solacowa@gmail.com"
 
 COPY ./sources.list /etc/apt/sources.list
 
 ARG PYTHON_VERSION=3.10
 
 ARG DEBIAN_FRONTEND=noninteractive
-
-ARG http_proxy=http://10.170.32.94:7890
-ARG https_proxy=http://10.170.32.94:7890
-ARG all_proxy=http://10.170.32.94:7890
-ARG no_proxy="10.170.*,10.181.*,10.182.*,.idc,.corp"
 
 # Instal basic utilities
 RUN apt-get update && \

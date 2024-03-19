@@ -14,7 +14,7 @@ import (
 )
 
 func TestAgent_Example(t *testing.T) {
-	_, _, _ = Init()
+	_, _ = Init()
 	llm, testErr := openai.New(openai.WithBaseURL("http://chat-api:8080/v1"),
 		openai.WithToken(""),
 		//openai.WithModel("qwen-14b-chat"),

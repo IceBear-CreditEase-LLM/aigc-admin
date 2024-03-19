@@ -470,7 +470,7 @@ func prepare(ctx context.Context) error {
 		},
 		Runtime:         runtimeOpts,
 		RuntimePlatform: runtimePlatform,
-	}, clientOpts, dockerWorkspace)
+	}, clientOpts)
 
 	Logger = logger
 	return err

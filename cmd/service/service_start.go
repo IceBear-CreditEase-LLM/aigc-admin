@@ -13,6 +13,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/datasettask"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/files"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/finetuning"
+	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/modelevaluate"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/models"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/sys"
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/pkg/tools"
@@ -102,6 +103,7 @@ aigc-admin start -p :8080
 	datasetTaskSvc     datasettask.Service
 	toolsSvc           tools.Service
 	assistantsSvc      assistants.Service
+	modelEvaluateSvc   modelevaluate.Service
 )
 
 func start(ctx context.Context) (err error) {
@@ -145,6 +147,11 @@ func start(ctx context.Context) (err error) {
 		datasettask.WithCallbackHost(serverDomain),
 	)
 
+	modelEvaluateSvc = modelevaluate.New(logger, traceId, store, apiSvc, fileSvc,
+		modelevaluate.WithDatasetGpuTolerationValue(datasetsGpuToleration),
+		modelevaluate.WithCallbackHost(serverDomain),
+	)
+
 	if logger != nil {
 		authSvc = auth.NewLogging(logger, logging.TraceId)(authSvc)
 		fileSvc = files.NewLogging(logger, logging.TraceId)(fileSvc)
@@ -156,6 +163,7 @@ func start(ctx context.Context) (err error) {
 		toolsSvc = tools.NewLogging(logger, logging.TraceId)(toolsSvc)
 		datasetDocumentSvc = datasetdocument.NewLogging(logger, logging.TraceId)(datasetDocumentSvc)
 		datasetTaskSvc = datasettask.NewLogging(logger, logging.TraceId)(datasetTaskSvc)
+		modelEvaluateSvc = modelevaluate.NewLogging(logger, logging.TraceId)(modelEvaluateSvc)
 	}
 
 	if tracer != nil {
@@ -169,6 +177,7 @@ func start(ctx context.Context) (err error) {
 		datasetDocumentSvc = datasetdocument.NewTracing(tracer)(datasetDocumentSvc)
 		toolsSvc = tools.NewTracing(tracer)(toolsSvc)
 		datasetTaskSvc = datasettask.NewTracing(tracer)(datasetTaskSvc)
+		modelEvaluateSvc = modelevaluate.NewTracing(tracer)(modelEvaluateSvc)
 	}
 
 	g := &group.Group{}
@@ -290,6 +299,8 @@ func initHttpHandler(ctx context.Context, g *group.Group) {
 	r.PathPrefix("/api/mgr/datasets").Handler(http.StripPrefix("/api/mgr/datasets", datasetdocument.MakeHTTPHandler(datasetDocumentSvc, authEms, opts)))
 	// 数据集标注模块
 	r.PathPrefix("/api/mgr/annotation/task").Handler(http.StripPrefix("/api/mgr/annotation/task", datasettask.MakeHTTPHandler(datasetTaskSvc, authEms, opts)))
+	// Model Evaluate模块
+	r.PathPrefix("/api/evaluate").Handler(http.StripPrefix("/api/evaluate", modelevaluate.MakeHTTPHandler(modelEvaluateSvc, authEms, opts)))
 	// 对外metrics
 	r.Handle("/metrics", promhttp.Handler())
 	// 心跳检测
