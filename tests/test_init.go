@@ -78,7 +78,7 @@ const (
 	EnvNameServiceS3DownloadUrl  = "AIGC_SERVICE_S3_DOWNLOAD_URL"
 	EnvNameServiceS3ProjectName  = "AIGC_SERVICE_S3_PROJECT_NAME"
 	EnvNameServiceS3Cluster      = "AIGC_SERVICE_S3_CLUSTER"
-	EnvNameDockerWorkspace       = "AIGC_Docker_WORKSPACE" // chat-api 相关
+	EnvNameDockerWorkspace       = "AIGC_DOCKER_WORKSPACE" // chat-api 相关
 
 	// [LDAP 相关]
 	EnvNameLdapHost        = "AIGC_LDAP_HOST"

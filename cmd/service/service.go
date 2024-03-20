@@ -122,17 +122,18 @@ const (
 	EnvNameDatasetsGpuToleration = "AIGC_DATASETS_GPU_TOLERATION"
 
 	// [runtime]
-	EnvNameRuntimePlatform      = "AIGC_RUNTIME_PLATFORM"
-	EnvNameRuntimeShmSize       = "AIGC_RUNTIME_SHM_SIZE"
-	EnvNameRuntimeK8sHost       = "AIGC_RUNTIME_K8S_HOST"
-	EnvNameRuntimeK8sToken      = "AIGC_RUNTIME_K8S_TOKEN"
-	EnvNameRuntimeK8sConfigPath = "AIGC_RUNTIME_K8S_CONFIG_PATH"
-	EnvNameRuntimeK8sNamespace  = "AIGC_RUNTIME_K8S_NAMESPACE"
-	EnvNameRuntimeK8sInsecure   = "AIGC_RUNTIME_K8S_INSECURE"
-	EnvNameRuntimeK8sVolumeName = "AIGC_RUNTIME_K8S_VOLUME_NAME"
-	EnvNameRuntimePaasHost      = "AIGC_RUNTIME_PAAS_HOST"
-	EnvNameRuntimePaasAccessKey = "AIGC_RUNTIME_PAAS_ACCESS_KEY"
-	EnvNameRuntimePaasSecretKey = "AIGC_RUNTIME_PAAS_SECRET_KEY"
+	EnvNameRuntimePlatform        = "AIGC_RUNTIME_PLATFORM"
+	EnvNameRuntimeShmSize         = "AIGC_RUNTIME_SHM_SIZE"
+	EnvNameRuntimeK8sHost         = "AIGC_RUNTIME_K8S_HOST"
+	EnvNameRuntimeK8sToken        = "AIGC_RUNTIME_K8S_TOKEN"
+	EnvNameRuntimeK8sConfigPath   = "AIGC_RUNTIME_K8S_CONFIG_PATH"
+	EnvNameRuntimeK8sNamespace    = "AIGC_RUNTIME_K8S_NAMESPACE"
+	EnvNameRuntimeK8sInsecure     = "AIGC_RUNTIME_K8S_INSECURE"
+	EnvNameRuntimeK8sVolumeName   = "AIGC_RUNTIME_K8S_VOLUME_NAME"
+	EnvNameRuntimePaasHost        = "AIGC_RUNTIME_PAAS_HOST"
+	EnvNameRuntimePaasAccessKey   = "AIGC_RUNTIME_PAAS_ACCESS_KEY"
+	EnvNameRuntimePaasSecretKey   = "AIGC_RUNTIME_PAAS_SECRET_KEY"
+	EnvNameRuntimeDockerWorkspace = "AIGC_RUNTIME_DOCKER_WORKSPACE"
 
 	// [local]
 	EnvNameStorageType = "AIGC_STORAGE_TYPE"
@@ -286,7 +287,7 @@ var (
 
 	// [runtime]
 	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace, runtimeK8sVolumeName string
-	runtimePaasHost, runtimePaasAccessKey, runtimePaasSecretKey                                                                       string
+	runtimePaasHost, runtimePaasAccessKey, runtimePaasSecretKey, runtimeDockerWorkspace                                               string
 	runtimeK8sInsecure                                                                                                                bool
 
 	channelId     int
@@ -402,9 +403,7 @@ Platform: ` + goOS + "/" + goArch + `
 	rootCmd.PersistentFlags().StringVar(&runtimeK8sNamespace, "runtime.k8s.namespace", DefaultRuntimeK8sNamespace, "K8s命名空间")
 	rootCmd.PersistentFlags().StringVar(&runtimeK8sVolumeName, "runtime.k8s.volume.name", DefaultRuntimeK8sVolumeName, "K8s挂载的存储名")
 	rootCmd.PersistentFlags().BoolVar(&runtimeK8sInsecure, "runtime.k8s.insecure", DefaultRuntimeK8sInsecure, "K8s是否不安全")
-	rootCmd.PersistentFlags().StringVar(&runtimePaasHost, "runtime.paas.host", DefaultRuntimePaasHost, "Paas服务地址")
-	rootCmd.PersistentFlags().StringVar(&runtimePaasAccessKey, "runtime.paas.access.key", DefaultRuntimePaasAccessKey, "Paas AccessKey")
-	rootCmd.PersistentFlags().StringVar(&runtimePaasSecretKey, "runtime.paas.secret.key", DefaultRuntimePaasSecretKey, "Paas SecretKey")
+	rootCmd.PersistentFlags().StringVar(&runtimeDockerWorkspace, "runtime.docker.workspace", defaultStoragePath, "Docker工作目录")
 
 	// [dataset]
 	startCmd.PersistentFlags().StringVar(&datasetsImage, "datasets.image", DefaultDatasetsImage, "datasets image")
@@ -575,6 +574,7 @@ func prepare(ctx context.Context) error {
 		runtime2.WithShmSize(runtimeShmSize),
 		runtime2.WithK8sVolumeName(runtimeK8sVolumeName),
 		runtime2.WithNamespace(runtimeK8sNamespace),
+		runtime2.WithWorkspace(runtimeDockerWorkspace),
 	)
 	apiSvc = services.NewApi(ctx, logger, traceId, serverDebug, tracer, &services.Config{
 		Namespace: namespace, ServiceName: serverName,
@@ -704,6 +704,7 @@ func Run() {
 	runtimePaasHost = envString(EnvNameRuntimePaasHost, DefaultRuntimePaasHost)
 	runtimePaasAccessKey = envString(EnvNameRuntimePaasAccessKey, DefaultRuntimePaasAccessKey)
 	runtimePaasSecretKey = envString(EnvNameRuntimePaasSecretKey, DefaultRuntimePaasSecretKey)
+	runtimeDockerWorkspace = envString(EnvNameRuntimeDockerWorkspace, defaultStoragePath)
 
 	if err = rootCmd.Execute(); err != nil {
 		fmt.Println("rootCmd.Execute", err.Error())
