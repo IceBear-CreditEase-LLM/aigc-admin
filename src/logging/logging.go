@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	gosyslog "log/syslog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	"github.com/go-kit/kit/transport"
 	kitlog "github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/go-kit/log/syslog"
 	"github.com/go-kit/log/term"
 	"github.com/lestrrat-go/file-rotatelogs"
 	gormlogger "gorm.io/gorm/logger"
@@ -65,7 +63,9 @@ func NewLogErrorHandler(logger kitlog.Logger, apiSvc services.Service) transport
 
 func SetLogging(logger kitlog.Logger, logPath, logFileName, legLevel, serviceName, logDrive string) kitlog.Logger {
 	if !strings.EqualFold(logDrive, "") && strings.EqualFold("syslog", strings.ToLower(logDrive)) {
-		return kitlog.With(syslogLogger(legLevel, serviceName), "caller", kitlog.DefaultCaller)
+		// TODO: windows 不支持syslog 暂时先去掉
+		//return kitlog.With(syslogLogger(legLevel, serviceName), "caller", kitlog.DefaultCaller)
+		return term.NewLogger(os.Stdout, kitlog.NewLogfmtLogger, colorFunc())
 	}
 
 	if !strings.EqualFold(logPath, "") {
@@ -122,38 +122,6 @@ func defaultLogger(filePath string) kitlog.Logger {
 	}
 
 	return kitlog.NewLogfmtLogger(writer)
-}
-
-func syslogLogger(lv, serviceName string) kitlog.Logger {
-	w, err := gosyslog.New(syslogLevel(lv), serviceName)
-	if err != nil {
-		log.Fatal(err)
-		return nil
-	}
-	return syslog.NewSyslogLogger(w, kitlog.NewLogfmtLogger)
-}
-
-func syslogLevel(lv string) gosyslog.Priority {
-	switch lv {
-	case "emergency":
-		return gosyslog.LOG_EMERG
-	case "alert":
-		return gosyslog.LOG_ALERT
-	case "critical":
-		return gosyslog.LOG_CRIT
-	case "error":
-		return gosyslog.LOG_ERR
-	case "warning":
-		return gosyslog.LOG_WARNING
-	case "notice":
-		return gosyslog.LOG_NOTICE
-	case "info":
-		return gosyslog.LOG_INFO
-	case "debug":
-		return gosyslog.LOG_DEBUG
-	default:
-		return gosyslog.LOG_LOCAL0
-	}
 }
 
 func colorFunc() func(keyvals ...interface{}) term.FgBgColor {

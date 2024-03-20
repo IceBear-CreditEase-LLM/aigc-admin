@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"os"
 	"strings"
@@ -53,10 +54,10 @@ aigc-admin generate table all
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			logger = log.NewLogfmtLogger(os.Stdout)
 			// 连接数据库
+			var dbErr error
 			if strings.EqualFold(dbDrive, "mysql") {
 				dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local&timeout=20m&collation=utf8mb4_unicode_ci",
 					mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
-				var dbErr error
 				sqlDB, err := sql.Open("mysql", dbUrl)
 				if err != nil {
 					_ = level.Error(logger).Log("sql", "Open", "err", err.Error())
@@ -81,6 +82,25 @@ aigc-admin generate table all
 					return dbErr
 				}
 				_ = level.Debug(logger).Log("mysql", "connect", "success", true)
+			} else if strings.EqualFold(dbDrive, "sqlite") {
+				_ = os.MkdirAll(fmt.Sprintf("%s/database", serverStoragePath), 0755)
+				sqliteDB, err := gorm.Open(sqlite.Open(fmt.Sprintf("%s/database/aigc.db", serverStoragePath)), &gorm.Config{
+					DisableForeignKeyConstraintWhenMigrating: true,
+				})
+				if err != nil {
+					_ = level.Error(logger).Log("sqlite", "connect", "err", err.Error())
+					return err
+				}
+				db, dbErr = sqliteDB.DB()
+				if dbErr != nil {
+					_ = level.Error(logger).Log("sqlite", "connect", "err", dbErr.Error())
+					return dbErr
+				}
+				_ = level.Debug(logger).Log("sqlite", "connect", "success", true)
+			} else {
+				err = fmt.Errorf("db drive not support: %s", dbDrive)
+				_ = level.Error(logger).Log("db", "drive", "err", err.Error())
+				return err
 			}
 			return nil
 		},
@@ -88,34 +108,34 @@ aigc-admin generate table all
 )
 
 func generateTable() (err error) {
-	_ = logger.Log("migrate", "table", "Chat", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.Chat{}))
-	_ = logger.Log("migrate", "table", "ChatAllowUser", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ChatAllowUser{}))
-	_ = logger.Log("migrate", "table", "ChatConversation", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ChatConversation{}))
-	_ = logger.Log("migrate", "table", "ChatSystemPrompt", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ChatSystemPrompt{}))
-	_ = logger.Log("migrate", "table", "ChatPromptTypes", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ChatPromptTypes{}))
-	_ = logger.Log("migrate", "table", "ChatChannels", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ChatChannels{}))
-	_ = logger.Log("migrate", "table", "ChatPrompts", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ChatPrompts{}))
-	_ = logger.Log("migrate", "table", "ChatChannelModels", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ChatChannelModels{}))
-	_ = logger.Log("migrate", "table", "ChatMessages", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ChatMessages{}))
-	_ = logger.Log("migrate", "table", "Dataset", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.Dataset{}))
-	_ = logger.Log("migrate", "table", "DatasetSample", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.DatasetSample{}))
-	_ = logger.Log("migrate", "table", "Assistants", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.Assistants{}))
-	_ = logger.Log("migrate", "table", "Tools", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.Tools{}))
-	_ = logger.Log("migrate", "table", "AssistantToolAssociations", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.AssistantToolAssociations{}))
-	_ = logger.Log("migrate", "table", "Files", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.Files{}))
-	_ = logger.Log("migrate", "table", "SysAudit", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.SysAudit{}))
-	_ = logger.Log("migrate", "table", "FineTuningTrainJob", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.FineTuningTrainJob{}))
-	_ = logger.Log("migrate", "table", "FineTuningTemplate", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.FineTuningTemplate{}))
-	_ = logger.Log("migrate", "table", "Tenants", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.Tenants{}))
-	_ = logger.Log("migrate", "table", "Models", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.Models{}))
-	_ = logger.Log("migrate", "table", "SysDict", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.SysDict{}))
-	_ = logger.Log("migrate", "table", "ModelDeploy", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ModelDeploy{}))
-	_ = logger.Log("migrate", "table", "LLMEvalResults", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.LLMEvalResults{}))
-	_ = logger.Log("migrate", "table", "DatasetDocument", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.DatasetDocument{}))
-	_ = logger.Log("migrate", "table", "DatasetDocumentSegment", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.DatasetDocumentSegment{}))
-	_ = logger.Log("migrate", "table", "DatasetAnnotationTask", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.DatasetAnnotationTask{}))
-	_ = logger.Log("migrate", "table", "DatasetAnnotationTaskSegment", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.DatasetAnnotationTaskSegment{}))
-	_ = logger.Log("migrate", "table", "ModelEvaluate", gormDB.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;").AutoMigrate(types.ModelEvaluate{}))
+	_ = logger.Log("migrate", "table", "Chat", gormDB.AutoMigrate(types.Chat{}))
+	_ = logger.Log("migrate", "table", "ChatAllowUser", gormDB.AutoMigrate(types.ChatAllowUser{}))
+	_ = logger.Log("migrate", "table", "ChatConversation", gormDB.AutoMigrate(types.ChatConversation{}))
+	_ = logger.Log("migrate", "table", "ChatSystemPrompt", gormDB.AutoMigrate(types.ChatSystemPrompt{}))
+	_ = logger.Log("migrate", "table", "ChatPromptTypes", gormDB.AutoMigrate(types.ChatPromptTypes{}))
+	_ = logger.Log("migrate", "table", "ChatChannels", gormDB.AutoMigrate(types.ChatChannels{}))
+	_ = logger.Log("migrate", "table", "ChatPrompts", gormDB.AutoMigrate(types.ChatPrompts{}))
+	_ = logger.Log("migrate", "table", "ChatChannelModels", gormDB.AutoMigrate(types.ChatChannelModels{}))
+	_ = logger.Log("migrate", "table", "ChatMessages", gormDB.AutoMigrate(types.ChatMessages{}))
+	_ = logger.Log("migrate", "table", "Dataset", gormDB.AutoMigrate(types.Dataset{}))
+	_ = logger.Log("migrate", "table", "DatasetSample", gormDB.AutoMigrate(types.DatasetSample{}))
+	_ = logger.Log("migrate", "table", "Assistants", gormDB.AutoMigrate(types.Assistants{}))
+	_ = logger.Log("migrate", "table", "Tools", gormDB.AutoMigrate(types.Tools{}))
+	_ = logger.Log("migrate", "table", "AssistantToolAssociations", gormDB.AutoMigrate(types.AssistantToolAssociations{}))
+	_ = logger.Log("migrate", "table", "Files", gormDB.AutoMigrate(types.Files{}))
+	_ = logger.Log("migrate", "table", "SysAudit", gormDB.AutoMigrate(types.SysAudit{}))
+	_ = logger.Log("migrate", "table", "FineTuningTrainJob", gormDB.AutoMigrate(types.FineTuningTrainJob{}))
+	_ = logger.Log("migrate", "table", "FineTuningTemplate", gormDB.AutoMigrate(types.FineTuningTemplate{}))
+	_ = logger.Log("migrate", "table", "Tenants", gormDB.AutoMigrate(types.Tenants{}))
+	_ = logger.Log("migrate", "table", "Models", gormDB.AutoMigrate(types.Models{}))
+	_ = logger.Log("migrate", "table", "SysDict", gormDB.AutoMigrate(types.SysDict{}))
+	_ = logger.Log("migrate", "table", "ModelDeploy", gormDB.AutoMigrate(types.ModelDeploy{}))
+	_ = logger.Log("migrate", "table", "LLMEvalResults", gormDB.AutoMigrate(types.LLMEvalResults{}))
+	_ = logger.Log("migrate", "table", "DatasetDocument", gormDB.AutoMigrate(types.DatasetDocument{}))
+	_ = logger.Log("migrate", "table", "DatasetDocumentSegment", gormDB.AutoMigrate(types.DatasetDocumentSegment{}))
+	_ = logger.Log("migrate", "table", "DatasetAnnotationTask", gormDB.AutoMigrate(types.DatasetAnnotationTask{}))
+	_ = logger.Log("migrate", "table", "DatasetAnnotationTaskSegment", gormDB.AutoMigrate(types.DatasetAnnotationTaskSegment{}))
+	_ = logger.Log("migrate", "table", "ModelEvaluate", gormDB.AutoMigrate(types.ModelEvaluate{}))
 	//err = initData()
 	//if err != nil {
 	//	return err
@@ -161,7 +181,7 @@ func initData() (err error) {
 
 	_ = logger.Log("init", "data", "sys_dict", gormDB.Exec(initSysDictSql).Error)
 	_ = logger.Log("init", "data", "finetuning_template", gormDB.Exec(ftTemplateSql).Error)
-	_ = logger.Log("init", "data", "models", gormDB.Exec(ftTemplateSql).Error)
+	_ = logger.Log("init", "data", "models", gormDB.Exec(modelSql).Error)
 	return err
 }
 

@@ -24,8 +24,8 @@ func (c ChatBotType) Int() int {
 // ChatBot 会话智能体
 type ChatBot struct {
 	gorm.Model
-	Name                string           `gorm:"column:name;type:varchar(100);NOT NULL"` // 名称
-	Email               string           `gorm:"column:email;size:128;not null;index;comment:邮箱" json:"email"`
+	Name                string           `gorm:"column:name;type:varchar(100);NOT NULL"`                   // 名称
+	Email               string           `gorm:"column:email;size:128;not null;index;" json:"email"`       // comment:邮箱
 	DescriptionForHuman string           `gorm:"column:description_for_human;type:varchar(2000);NOT NULL"` // 智能体描述
 	DescriptionForModel string           `gorm:"column:description_for_model;type:varchar(2000)"`          // 智能体针对模型描述(作为系统提示词使用)
 	PrivateStatus       int              `gorm:"column:private_status;type:tinyint(4);default:1;NOT NULL"` // 私有状态 1.公开 2.不公开

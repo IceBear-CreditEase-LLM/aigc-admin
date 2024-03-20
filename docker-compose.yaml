@@ -1,24 +1,7 @@
 version: "3"
 services:
-  mysql:
-    image: mysql:8.3.0
-    restart: always
-    environment:
-      - MYSQL_DATABASE=aigc
-      - MYSQL_USER=aigc
-      - MYSQL_PASSWORD=admin
-      - MYSQL_ROOT_PASSWORD=admin@123
-      - TZ=Asia/Shanghai
-    command: [
-      '--character-set-server=utf8mb4',
-      '--collation-server=utf8mb4_unicode_ci',
-    ]
-    ports:
-      - "3306:3306"
-    volumes:
-      - ./.cache/mysql:/var/lib/mysql
   aigc-admin:
-    image: dudulu/aigc-admin:0.0.0-pre-0206
+    image: dudulu/aigc-admin:beta-0320
     restart: always
     build:
       context: .
@@ -30,7 +13,3 @@ services:
     command:
       - aigc-admin
       - start
-      - -p
-      - :8080
-    depends_on:
-      - mysql

@@ -32,22 +32,6 @@ func (c AudioType) String() string {
 }
 
 const (
-	ChatModelDefault           ChatModel = "default"
-	ChatModelVicuna13b         ChatModel = "vicuna-13b"
-	ChatModelVicuna7b          ChatModel = "vicuna-7b"
-	ChatModelAlpaca7b          ChatModel = "alpaca-7b"
-	ChatModelAlpaca13b         ChatModel = "alpaca-13b"
-	ChatModelAlpaca33b         ChatModel = "alpaca-33b"
-	ChatModelLLaMA7b           ChatModel = "llama-7b"
-	ChatModelLLaMA13b          ChatModel = "llama-13b"
-	ChatModelLLaMA30b          ChatModel = "llama-30b"
-	ChatModelLLaMA65b          ChatModel = "llama-65b"
-	ChatModelGPT3Dot5Turbo     ChatModel = "gpt-3.5-turbo"
-	ChatModelGPT3Dot5Turbo0613 ChatModel = "gpt-3.5-turbo-0613"
-	ChatModelGPT4              ChatModel = "gpt-4"
-	ChatModelGPT40314          ChatModel = "gpt-4-0314"
-	ChatModelGPT40613          ChatModel = "gpt-4-0613"
-
 	ChatPromptTypeImagine       ChatPromptType = "imagine"
 	ChatPromptTypeText          ChatPromptType = "text"
 	ChatPromptTypeQA            ChatPromptType = "qa"
@@ -66,25 +50,25 @@ const (
 // Chat 对话消息表
 type Chat struct {
 	gorm.Model
-	ChatModel      ChatModel      `gorm:"column:chat_model;size:64;null;index;default:'default';comment:聊天模型" json:"chat_model"`
-	Email          string         `gorm:"column:email;size:128;not null;index;comment:邮箱" json:"email"`
-	Prompt         string         `gorm:"column:prompt;type:text;size:8192;not null;comment:提示" json:"prompt"`
-	Response       string         `gorm:"column:response;type:longtext;null;comment:内容" json:"response"`
-	BeginTime      time.Time      `gorm:"column:begin_time;null;comment:开始时间" json:"begin_time"`
-	EndTime        time.Time      `gorm:"column:end_time;null;comment:结束时间" json:"end_time"`
-	Temperature    float64        `gorm:"column:temperature;null;comment:温度" json:"temperature"`
-	TopP           float64        `gorm:"column:top_p;null;comment:top_p" json:"top_p"`
-	Status         int            `gorm:"column:status;null;comment:状态" json:"status"`
-	RoleId         uint           `gorm:"column:role_id;null;index;comment:角色id" json:"role_id"`
-	TimeCost       string         `gorm:"column:time_cost;size:16;null;comment:耗时" json:"time_cost"`
-	Error          bool           `gorm:"column:error;null;default:false;comment:错误" json:"error"`
-	ChatId         string         `gorm:"column:chat_id;size:64;null;index;comment:聊天id" json:"chat_id"`
-	MaxLength      int            `gorm:"column:max_length;null;comment:最大长度" json:"max_length"`
-	ConversationId uint           `gorm:"column:conversation_id;null;index;comment:对话ID" json:"conversation_id"`
-	PromptType     ChatPromptType `gorm:"column:prompt_type;size:32;null;default:'text';comment:提示类型" json:"prompt_type"`
-	PanUrl         string         `gorm:"column:pan_url;size:50;null;comment:文件云盘地址" json:"pan_url"`
-	SendType       ChatSendType   `gorm:"column:send_type;size:10;null;default:'text';comment:发送类型" json:"send_type"`
-	Ext            string         `gorm:"column:ext;size:128;null;comment:文件后缀" json:"ext"`
+	ChatModel      ChatModel      `gorm:"column:chat_model;size:64;null;index;default:'default'" json:"chat_model"`
+	Email          string         `gorm:"column:email;size:128;not null;index;" json:"email"`
+	Prompt         string         `gorm:"column:prompt;type:text;size:8192;not null;" json:"prompt"`
+	Response       string         `gorm:"column:response;type:longtext;null;" json:"response"`
+	BeginTime      time.Time      `gorm:"column:begin_time;null;" json:"begin_time"`
+	EndTime        time.Time      `gorm:"column:end_time;null;" json:"end_time"`
+	Temperature    float64        `gorm:"column:temperature;null;" json:"temperature"`
+	TopP           float64        `gorm:"column:top_p;null;" json:"top_p"`
+	Status         int            `gorm:"column:status;null;" json:"status"`
+	RoleId         uint           `gorm:"column:role_id;null;index;" json:"role_id"`
+	TimeCost       string         `gorm:"column:time_cost;size:16;null;" json:"time_cost"`
+	Error          bool           `gorm:"column:error;null;default:false;" json:"error"`
+	ChatId         string         `gorm:"column:chat_id;size:64;null;index;" json:"chat_id"`
+	MaxLength      int            `gorm:"column:max_length;null;" json:"max_length"`
+	ConversationId uint           `gorm:"column:conversation_id;null;index;" json:"conversation_id"`
+	PromptType     ChatPromptType `gorm:"column:prompt_type;size:32;null;default:'text';" json:"prompt_type"`
+	PanUrl         string         `gorm:"column:pan_url;size:50;null;" json:"pan_url"`
+	SendType       ChatSendType   `gorm:"column:send_type;size:10;null;default:'text';" json:"send_type"`
+	Ext            string         `gorm:"column:ext;size:128;null;" json:"ext"`
 
 	Conversation ChatConversation `gorm:"foreignKey:ConversationId;references:ID" json:"-"`
 }
@@ -92,15 +76,15 @@ type Chat struct {
 // ChatConversation 对话表
 type ChatConversation struct {
 	gorm.Model
-	Uuid        string    `gorm:"column:uuid;size:40;not null;unique;comment:UUID" json:"uuid"`
-	Alias       string    `gorm:"column:alias;size:64;null;default:'New Chat';comment:别名" json:"alias"`
-	Email       string    `gorm:"column:email;size:128;not null;index;comment:邮箱" json:"email"`
-	ChatModel   ChatModel `gorm:"column:chat_model;size:64;null;index;default:'default';comment:聊天模型" json:"chat_model"`
-	ChannelId   uint      `gorm:"column:channel_id;null;index;comment:渠道ID" json:"channel_id"`
-	Temperature float64   `gorm:"column:temperature;null;comment:温度" json:"temperature"`
-	TopP        float64   `gorm:"column:top_p;null;comment:采样性" json:"top_p"`
-	MaxTokens   int       `gorm:"column:max_tokens;default:2048;null;comment:最大支持Tokens" json:"max_tokens"`
-	SysPrompt   string    `gorm:"column:sys_prompt;size:255;null;comment:系统提示" json:"sys_prompt"`
+	Uuid        string    `gorm:"column:uuid;size:40;not null;unique;" json:"uuid"`                          // comment:UUID
+	Alias       string    `gorm:"column:alias;size:64;null;default:'New Chat';" json:"alias"`                // comment:别名
+	Email       string    `gorm:"column:email;size:128;not null;index;" json:"email"`                        // comment:邮箱
+	ChatModel   ChatModel `gorm:"column:chat_model;size:64;null;index;default:'default';" json:"chat_model"` // comment:聊天模型
+	ChannelId   uint      `gorm:"column:channel_id;null;index;" json:"channel_id"`                           // comment:渠道ID
+	Temperature float64   `gorm:"column:temperature;null;" json:"temperature"`                               // comment:温度
+	TopP        float64   `gorm:"column:top_p;null;" json:"top_p"`                                           // comment:采样性
+	MaxTokens   int       `gorm:"column:max_tokens;default:2048;null;" json:"max_tokens"`                    // comment:最大支持Tokens
+	SysPrompt   string    `gorm:"column:sys_prompt;size:255;null;" json:"sys_prompt"`                        // comment:系统提示
 
 	Channel ChatChannels `gorm:"foreignKey:channel_id;references:id" json:"-"`
 }
@@ -108,56 +92,56 @@ type ChatConversation struct {
 // ChatSystemPrompt 系统提示表
 type ChatSystemPrompt struct {
 	gorm.Model
-	ChatModel  ChatModel      `gorm:"column:chat_model;size:64;notnull;index;default:'default';comment:聊天模型" json:"chat_model"`
-	Content    string         `gorm:"column:content;type:text;size:8192;not null;comment:内容" json:"content"`
-	PromptType ChatPromptType `gorm:"column:prompt_type;size:32;notnull;index;default:'text';comment:提示类型" json:"prompt_type"`
+	ChatModel  ChatModel      `gorm:"column:chat_model;size:64;notnull;index;default:'default';" json:"chat_model"`
+	Content    string         `gorm:"column:content;type:text;size:8192;not null;" json:"content"`
+	PromptType ChatPromptType `gorm:"column:prompt_type;size:32;notnull;index;default:'text';" json:"prompt_type"`
 }
 
 // ChatPromptTypes 提示类型表
 type ChatPromptTypes struct {
 	gorm.Model
-	Name   string `gorm:"column:name;size:32;not null;index;comment:名称" json:"name"`
-	Alias  string `gorm:"column:alias;size:64;null;default:'New Chat';comment:别名" json:"alias"`
-	Remark string `gorm:"column:remark;size:128;null;comment:备注" json:"remark"`
+	Name   string `gorm:"column:name;size:32;not null;index;" json:"name"`
+	Alias  string `gorm:"column:alias;size:64;null;default:'New Chat';" json:"alias"`
+	Remark string `gorm:"column:remark;size:128;null;" json:"remark"`
 }
 
 // ChatPrompts 提示表
 type ChatPrompts struct {
 	gorm.Model
-	Title      string         `gorm:"column:title;size:64;not null;index;comment:标题" json:"title"`
-	Content    string         `gorm:"column:content;type:text;size:8192;not null;comment:内容" json:"content"`
-	PromptType ChatPromptType `gorm:"column:prompt_type;size:32;notnull;index;default:'text';comment:提示类型" json:"prompt_type"`
+	Title      string         `gorm:"column:title;size:64;not null;index;" json:"title"`                           // comment:标题
+	Content    string         `gorm:"column:content;type:text;size:8192;not null;" json:"content"`                 // comment:内容
+	PromptType ChatPromptType `gorm:"column:prompt_type;size:32;notnull;index;default:'text';" json:"prompt_type"` // comment:提示类型
 }
 
 // ChatChannelModels 渠道模型表
 type ChatChannelModels struct {
 	gorm.Model
-	ChannelId    uint         `gorm:"column:channel_id;null;index;comment:渠道ID" json:"channel_id"`
-	ModelName    ChatModel    `gorm:"column:model;size:64;notnull;index;default:'default';comment:聊天模型" json:"model"`
-	MaxTokens    int          `gorm:"column:max_tokens;default:2048;null;comment:最大支持Tokens" json:"max_tokens"`
-	IsPrivate    bool         `gorm:"column:is_private;null;default:false;comment:是否为本地私有模型" json:"is_private"`
+	ChannelId    uint         `gorm:"column:channel_id;null;index;" json:"channel_id"`                    // comment:渠道ID
+	ModelName    ChatModel    `gorm:"column:model;size:64;notnull;index;default:'default';" json:"model"` // comment:聊天模型
+	MaxTokens    int          `gorm:"column:max_tokens;default:2048;null;" json:"max_tokens"`             // comment:最大支持Tokens
+	IsPrivate    bool         `gorm:"column:is_private;null;default:false;" json:"is_private"`            // comment:是否为本地私有模型
 	ChatChannels ChatChannels `gorm:"foreignKey:id;references:channel_id" json:"-"`
 }
 
 // ChatMessages 消息表
 type ChatMessages struct {
 	gorm.Model
-	ModelName      ChatModel `gorm:"column:model;size:64;notnull;index;default:'default';comment:聊天模型" json:"model"`
-	ChannelId      uint      `gorm:"column:channel_id;null;index;comment:渠道ID" json:"channel_id"`
-	Response       string    `gorm:"column:response;type:longtext;size:65536;null;comment:回复" json:"response"`
-	Prompt         string    `gorm:"column:prompt;type:text;size:32768;not null;comment:问题" json:"prompt"`
-	PromptTokens   int       `gorm:"column:prompt_tokens;default:0;null;comment:问题Tokens" json:"prompt_tokens"`
-	ResponseTokens int       `gorm:"column:response_tokens;default:0;null;comment:回复Tokens" json:"response_tokens"`
-	Finished       bool      `gorm:"column:finished;default:false;null;comment:是否完成" json:"finished"`
-	TimeCost       string    `gorm:"column:time_cost;size:32;null;comment:耗时" json:"time_cost"`
-	Temperature    float64   `orm:"column:temperature;default:0.9;null;comment:温度" json:"temperature"`
-	TopP           float64   `orm:"column:top_p;default:0.9;null;comment:核心采样" json:"top_p"`
-	N              int       `orm:"column:n;default:1;null;comment:聊天完成选项" json:"n"`
-	User           string    `orm:"column:user;size:64;null;comment:用户" json:"user"`
-	MessageId      string    `orm:"column:message_id;size:128;null;comment:消息ID" json:"message_id"`
-	Object         string    `orm:"column:object;size:128;null;comment:对象" json:"object"`
-	Created        int64     `gorm:"column:created;null;comment:创建时间" json:"created"`
-	// 想想后面函数要怎么搞
+	ModelName      ChatModel `gorm:"column:model;size:64;notnull;index;default:'default';" json:"model"` // comment:聊天模型
+	ChannelId      uint      `gorm:"column:channel_id;null;index;" json:"channel_id"`                    // comment:渠道ID
+	Response       string    `gorm:"column:response;type:longtext;size:65536;null;" json:"response"`     // comment:回复
+	Prompt         string    `gorm:"column:prompt;type:text;size:32768;not null;" json:"prompt"`         // comment:问题
+	PromptTokens   int       `gorm:"column:prompt_tokens;default:0;null;" json:"prompt_tokens"`          // comment:问题Tokens
+	ResponseTokens int       `gorm:"column:response_tokens;default:0;null;" json:"response_tokens"`      // comment:回复Tokens
+	Finished       bool      `gorm:"column:finished;default:false;null;" json:"finished"`                // comment:是否完成
+	TimeCost       string    `gorm:"column:time_cost;size:32;null;" json:"time_cost"`                    // comment:耗时
+	Temperature    float64   `orm:"column:temperature;default:0.9;null;" json:"temperature"`             // comment:温度
+	TopP           float64   `orm:"column:top_p;default:0.9;null;" json:"top_p"`                         // comment:核心采样
+	N              int       `orm:"column:n;default:1;null;" json:"n"`                                   // comment:聊天完成选项
+	User           string    `orm:"column:user;size:64;null;" json:"user"`                               // comment:用户
+	MessageId      string    `orm:"column:message_id;size:128;null;" json:"message_id"`                  // comment:消息ID
+	Object         string    `orm:"column:object;size:128;null;" json:"object"`                          // comment:对象
+	Created        int64     `gorm:"column:created;null;" json:"created"`                                // comment:创建时间
+	Messages       string    `gorm:"column:messages;type:text;size:65536;null;" json:"messages"`         // comment:消息
 }
 
 // 正向标签 masterpiece, best quality, top quality, ultra highres, 8k hdr, 8k wallpaper, RAW, huge file size, intricate details, sharp focus, natural lighting, realistic, professional, delicate, amazing, CG, finely detailed, beautiful detailed, colourful
@@ -165,14 +149,14 @@ type ChatMessages struct {
 
 type ChatRole struct {
 	gorm.Model
-	Name  string `gorm:"column:name;size:32;not null;index;comment:角色名称" json:"name"`
-	Alias string `gorm:"column:alias;size:32;null;default:'New Chat';comment:角色别名" json:"alias"`
-	Email string `gorm:"column:email;size:128;not null;index;comment:邮箱" json:"email"`
+	Name  string `gorm:"column:name;size:32;not null;index;" json:"name"`            // comment:角色名称
+	Alias string `gorm:"column:alias;size:32;null;default:'New Chat';" json:"alias"` // comment:角色别名
+	Email string `gorm:"column:email;size:128;not null;index;" json:"email"`         // comment:邮箱
 }
 
 type ChatAllowUser struct {
 	gorm.Model
-	Email string `gorm:"column:email;size:128;not null;index;comment:邮箱" json:"email"`
+	Email string `gorm:"column:email;size:128;not null;index;" json:"email"` // comment:邮箱
 }
 
 func (c *Chat) TableName() string {

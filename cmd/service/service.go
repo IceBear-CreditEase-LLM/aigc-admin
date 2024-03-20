@@ -11,6 +11,7 @@ import (
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/ldapcli"
 	runtime2 "github.com/IceBear-CreditEase-LLM/aigc-admin/src/services/runtime"
 	"github.com/sashabaranov/go-openai"
+	gormlogger "gorm.io/gorm/logger"
 	"net"
 	"net/http"
 	"os"
@@ -26,8 +27,9 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
+	//"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
 	gormopentracing "gorm.io/plugin/opentracing"
 
 	"github.com/IceBear-CreditEase-LLM/aigc-admin/src/encode"
@@ -99,24 +101,22 @@ const (
 	EnvNameLdapUserAttr    = "AIGC_LDAP_USER_ATTR"
 
 	// [以下是aigc-admin模块配置]
-	EnvHttpPort                    = "AIGC_ADMIN_HTTP_PORT"
-	EnvNameServerLogDrive          = "AIGC_ADMIN_SERVER_LOG_DRIVE"
-	EnvNameServerLogPath           = "AIGC_ADMIN_SERVER_LOG_PATH"
-	EnvNameServerName              = "AIGC_ADMIN_SERVER_NAME"
-	EnvNameServerDebug             = "AIGC_ADMIN_SERVER_DEBUG"
-	EnvNameServerKey               = "AIGC_ADMIN_SERVER_KEY"
-	EnvNameServerLogLevel          = "AIGC_ADMIN_SERVER_LOG_LEVEL"
-	EnvNameServerLogName           = "AIGC_ADMIN_SERVER_LOG_NAME"
-	EnvNameServerAigcChannelKey    = "AIGC_ADMIN_SERVER_AIGC_CHANNEL_KEY"
-	EnvNameServerAdminUser         = "AIGC_ADMIN_SERVER_ADMIN_USER"
-	EnvNameServerAdminPass         = "AIGC_ADMIN_SERVER_ADMIN_PASS"
-	EnvNameServerDefaultChannelKey = "AIGC_ADMIN_SERVER_DEFAULT_CHANNEL_KEY"
-	EnvNameServerStoragePath       = "AIGC_ADMIN_SERVER_STORAGE_PATH"
-	EnvNameServerDomain            = "AIGC_ADMIN_SERVER_DOMAIN"
+	EnvHttpPort                 = "AIGC_ADMIN_HTTP_PORT"
+	EnvNameServerLogDrive       = "AIGC_ADMIN_SERVER_LOG_DRIVE"
+	EnvNameServerLogPath        = "AIGC_ADMIN_SERVER_LOG_PATH"
+	EnvNameServerName           = "AIGC_ADMIN_SERVER_NAME"
+	EnvNameServerDebug          = "AIGC_ADMIN_SERVER_DEBUG"
+	EnvNameServerKey            = "AIGC_ADMIN_SERVER_KEY"
+	EnvNameServerLogLevel       = "AIGC_ADMIN_SERVER_LOG_LEVEL"
+	EnvNameServerLogName        = "AIGC_ADMIN_SERVER_LOG_NAME"
+	EnvNameServerAigcChannelKey = "AIGC_ADMIN_SERVER_AIGC_CHANNEL_KEY"
+	EnvNameServerAdminUser      = "AIGC_ADMIN_SERVER_ADMIN_USER"
+	EnvNameServerAdminPass      = "AIGC_ADMIN_SERVER_ADMIN_PASS"
+	EnvNameServerStoragePath    = "AIGC_ADMIN_SERVER_STORAGE_PATH"
+	EnvNameServerDomain         = "AIGC_ADMIN_SERVER_DOMAIN"
 
 	// [datasets]
 	EnvNameDatasetsImage         = "AIGC_DATASETS_IMAGE"
-	EnvNameDatasetsDir           = "AIGC_DATASETS_DIR"
 	EnvNameDatasetsModelName     = "AIGC_DATASETS_MODEL_NAME"
 	EnvNameDatasetsDevice        = "AIGC_DATASETS_DEVICE"
 	EnvNameDatasetsGpuToleration = "AIGC_DATASETS_GPU_TOLERATION"
@@ -153,7 +153,7 @@ const (
 	// [cronjob]
 	AigcEnvNameCronJobAuto = "AIGC_CRONJOB_AUTO"
 
-	DefaultDbDrive       = "mysql"
+	DefaultDbDrive       = "sqlite"
 	DefaultMysqlHost     = "mysql"
 	DefaultMysqlPort     = 3306
 	DefaultMysqlUser     = "aigc"
@@ -209,19 +209,18 @@ const (
 	DefaultLdapAttributes  = "name,mail,userPrincipalName,displayName,sAMAccountName"
 
 	// [s3]
-	DefaultServiceS3Host         = "http://s3"
-	DefaultServiceS3AccessKey    = ""
-	DefaultServiceS3SecretKey    = ""
-	DefaultServiceS3Bucket       = "aigc"
-	DefaultServiceS3BucketPublic = "aigc"
-	DefaultServiceS3Region       = "default"
-	DefaultServiceS3Cluster      = "ceph-c2"
+	//DefaultServiceS3Host         = "http://s3"
+	//DefaultServiceS3AccessKey    = ""
+	//DefaultServiceS3SecretKey    = ""
+	//DefaultServiceS3Bucket       = "aigc"
+	//DefaultServiceS3BucketPublic = "aigc"
+	//DefaultServiceS3Region       = "default"
+	//DefaultServiceS3Cluster      = "ceph-c2"
 
 	// [datasets]
-	DefaultDatasetsImage     = "aigc/datasets:latest"
-	DefaultDatasetsDir       = "./datasets"
-	DefaultDatasetsModelName = ""
-	DefaultDatasetsDevice    = "mps"
+	DefaultDatasetsImage     = "dudulu/llmops:v0.8-0314"
+	DefaultDatasetsModelName = "uer/sbert-base-chinese-nli"
+	DefaultDatasetsDevice    = "cpu"
 )
 
 var (
@@ -280,10 +279,10 @@ var (
 	defaultServiceChatHost = "http://chat-api:8080"
 
 	// datasets
-	datasetsImage, datasetsDir, datasetsModelName, datasetsDevice, datasetsGpuToleration string
+	datasetsImage, datasetsModelName, datasetsDevice, datasetsGpuToleration string
 
 	// local
-	storageType, localDataPath string
+	storageType string
 
 	// [runtime]
 	runtimePlatform, runtimeShmSize, runtimeK8sHost, runtimeK8sToken, runtimeK8sConfigPath, runtimeK8sNamespace, runtimeK8sVolumeName string
@@ -384,15 +383,15 @@ Platform: ` + goOS + "/" + goArch + `
 	//rootCmd.PersistentFlags().StringVar(&serviceS3ProjectName, "service.s3.project.name", namespace, "S3 项目名称")
 
 	// [ldap]
-	rootCmd.PersistentFlags().StringVar(&ldapHost, "ldap.host", DefaultLdapHost, "LDAP地址")
-	rootCmd.PersistentFlags().IntVar(&ldapPort, "ldap.port", DefaultLdapPort, "LDAP端口")
-	rootCmd.PersistentFlags().StringVar(&ldapBaseDn, "ldap.base.dn", DefaultLdapBaseDn, "LDAP Base DN")
-	rootCmd.PersistentFlags().BoolVar(&ldapUseSsl, "ldap.use.ssl", false, "LDAP Base DN")
-	rootCmd.PersistentFlags().StringVar(&ldapBindUser, "ldap.bind.user", DefaultLdapBindUser, "LDAP Bind User")
-	rootCmd.PersistentFlags().StringVar(&ldapBindPass, "ldap.bind.pass", DefaultLdapBindPass, "LDAP Bind Password")
-	rootCmd.PersistentFlags().StringVar(&ldapUserFilter, "ldap.user.filter", DefaultLdapUserFilter, "LDAP User Filter")
-	rootCmd.PersistentFlags().StringVar(&ldapGroupFilter, "ldap.group.filter", DefaultLdapGroupFilter, "LDAP Group Filter")
-	rootCmd.PersistentFlags().StringSliceVar(&ldapUserAttr, "ldap.user.attr", []string{"name", "mail", "userPrincipalName", "displayName", "sAMAccountName"}, "LDAP Attributes")
+	startCmd.PersistentFlags().StringVar(&ldapHost, "ldap.host", DefaultLdapHost, "LDAP地址")
+	startCmd.PersistentFlags().IntVar(&ldapPort, "ldap.port", DefaultLdapPort, "LDAP端口")
+	startCmd.PersistentFlags().StringVar(&ldapBaseDn, "ldap.base.dn", DefaultLdapBaseDn, "LDAP Base DN")
+	startCmd.PersistentFlags().BoolVar(&ldapUseSsl, "ldap.use.ssl", false, "LDAP Base DN")
+	startCmd.PersistentFlags().StringVar(&ldapBindUser, "ldap.bind.user", DefaultLdapBindUser, "LDAP Bind User")
+	startCmd.PersistentFlags().StringVar(&ldapBindPass, "ldap.bind.pass", DefaultLdapBindPass, "LDAP Bind Password")
+	startCmd.PersistentFlags().StringVar(&ldapUserFilter, "ldap.user.filter", DefaultLdapUserFilter, "LDAP User Filter")
+	startCmd.PersistentFlags().StringVar(&ldapGroupFilter, "ldap.group.filter", DefaultLdapGroupFilter, "LDAP Group Filter")
+	startCmd.PersistentFlags().StringSliceVar(&ldapUserAttr, "ldap.user.attr", []string{"name", "mail", "userPrincipalName", "displayName", "sAMAccountName"}, "LDAP Attributes")
 
 	// [runtime]
 	rootCmd.PersistentFlags().StringVar(&runtimePlatform, "runtime.platform", DefaultRuntimePlatform, "运行时平台")
@@ -409,13 +408,12 @@ Platform: ` + goOS + "/" + goArch + `
 
 	// [dataset]
 	startCmd.PersistentFlags().StringVar(&datasetsImage, "datasets.image", DefaultDatasetsImage, "datasets image")
-	startCmd.PersistentFlags().StringVar(&datasetsDir, "datasets.dir", DefaultDatasetsDir, "datasets dir")
 	startCmd.PersistentFlags().StringVar(&datasetsModelName, "datasets.model.name", DefaultDatasetsModelName, "datasets model name")
 	startCmd.PersistentFlags().StringVar(&datasetsDevice, "datasets.device", DefaultDatasetsDevice, "datasets device")
 	startCmd.PersistentFlags().StringVar(&datasetsGpuToleration, "datasets.gpu.toleration", "", "datasets gpu toleration")
 
 	// [local]
-	startCmd.PersistentFlags().StringVar(&storageType, "storage.type", "/data/storage", "storage type")
+	startCmd.PersistentFlags().StringVar(&storageType, "storage.type", "local", "storage type")
 
 	cronJobStartCmd.PersistentFlags().BoolVar(&cronJobAuto, "cronjob.auto", true, "是否自动执行定时任务")
 
@@ -439,10 +437,10 @@ func prepare(ctx context.Context) error {
 	logger = logging.SetLogging(logger, serverLogPath, serverLogName, serverLogLevel, serverName, serverLogDrive)
 
 	// 连接数据库
+	var dbErr error
 	if strings.EqualFold(dbDrive, "mysql") {
 		dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local&timeout=20m&collation=utf8mb4_unicode_ci",
 			mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
-		var dbErr error
 		sqlDB, err := sql.Open("mysql", dbUrl)
 		if err != nil {
 			_ = level.Error(logger).Log("sql", "Open", "err", err.Error())
@@ -459,21 +457,44 @@ func prepare(ctx context.Context) error {
 			dbErr = encode.ErrServerStartDbConnect.Wrap(dbErr)
 			return dbErr
 		}
-		//gormDB.Statement.Clauses["soft_delete_enabled"] = clause.Clause{}
-		db, dbErr = gormDB.DB()
-		if dbErr != nil {
-			_ = level.Error(logger).Log("gormDB", "DB", "err", dbErr.Error())
-			dbErr = encode.ErrServerStartDbConnect.Wrap(dbErr)
-			return dbErr
-		}
 		_ = level.Debug(logger).Log("mysql", "connect", "success", true)
+		//gormDB.Statement.Clauses["soft_delete_enabled"] = clause.Clause{}
+	} else if strings.EqualFold(dbDrive, "sqlite") {
+		_ = os.MkdirAll(fmt.Sprintf("%s/database", serverStoragePath), 0755)
+		gormDB, err = gorm.Open(sqlite.Open(fmt.Sprintf("%s/database/aigc.db", serverStoragePath)), &gorm.Config{
+			DisableForeignKeyConstraintWhenMigrating: true,
+		})
+		if err != nil {
+			_ = level.Error(logger).Log("sqlite", "connect", "err", err.Error())
+			return err
+		}
+		_ = level.Debug(logger).Log("sqlite", "connect", "success", true)
+	} else {
+		err = fmt.Errorf("db drive not support: %s", dbDrive)
+		_ = level.Error(logger).Log("db", "drive", "err", err.Error())
+		return err
 	}
-
+	db, dbErr = gormDB.DB()
+	if dbErr != nil {
+		_ = level.Error(logger).Log("gormDB", "DB", "err", dbErr.Error())
+		dbErr = encode.ErrServerStartDbConnect.Wrap(dbErr)
+		return dbErr
+	}
 	if !strings.EqualFold(serverLogPath, "") {
 		gormDB.Logger = logging.NewGormLogging(logger)
 	} else {
 		gormDB.Logger = gormlogger.Default.LogMode(gormlogger.Info)
 	}
+
+	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+	db.SetMaxIdleConns(20)
+
+	// SetMaxOpenConns sets the maximum number of open connections to the database.
+	db.SetMaxOpenConns(100)
+
+	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
+	db.SetConnMaxLifetime(time.Hour)
+
 	if mysqlOrmMetrics {
 		//if err = gormDB.Use(gormprometheus.New(gormprometheus.Config{
 		//	DBName:          mysqlDatabase,
@@ -663,13 +684,12 @@ func Run() {
 
 	// [dataset]
 	datasetsImage = envString(EnvNameDatasetsImage, DefaultDatasetsImage)
-	datasetsDir = envString(EnvNameDatasetsDir, DefaultDatasetsDir)
 	datasetsModelName = envString(EnvNameDatasetsModelName, DefaultDatasetsModelName)
 	datasetsDevice = envString(EnvNameDatasetsDevice, DefaultDatasetsDevice)
 	datasetsGpuToleration = envString(EnvNameDatasetsGpuToleration, "")
 
 	// [local]
-	storageType = envString(EnvNameStorageType, "/data/storage")
+	storageType = envString(EnvNameStorageType, "local")
 	//localDataPath = envString(EnvNameLocalDataPath, DefaultLocalDataPath)
 
 	// [runtime]

@@ -27,9 +27,9 @@ type docker struct {
 }
 
 func (s docker) CreateJob(ctx context.Context, config Config) (jobName string, err error) {
-	exposedPorts := make(nat.PortSet, 0)
-	hostPortBindings := make(nat.PortMap, 0)
-	hostBinds := make([]string, 0, 0)
+	exposedPorts := make(nat.PortSet)
+	hostPortBindings := make(nat.PortMap)
+	hostBinds := make([]string, 0)
 
 	if len(config.ConfigData) > 0 {
 		err = config.saveConfigToLocal(config.ServiceName, s.options.workspace)

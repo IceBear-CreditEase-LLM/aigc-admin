@@ -34,7 +34,7 @@ func (c EvalDataSetType) String() string {
 type LLMEvalDatasetSamples struct {
 	gorm.Model
 	// 数据集文件ID
-	DatasetFileId uint `gorm:"column:dataset_file_id;NOT NULL;comment:数据集文件ID"` // 数据集文件ID
+	DatasetFileId uint `gorm:"column:dataset_file_id;NOT NULL;"` // 数据集文件ID
 
 }
 
@@ -42,31 +42,31 @@ type LLMEvalDatasetSamples struct {
 type LLMEvalResults struct {
 	gorm.Model
 	// 评估状态
-	Status EvalStatus `gorm:"column:status;size:20;NOT NULL;DEFAULT:'pending';index;comment:评估状态"` // 评估状态
+	Status EvalStatus `gorm:"column:status;size:20;NOT NULL;DEFAULT:'pending';index;"` // 评估状态
 	// 模型名称
-	ModelName string `gorm:"column:model_name;type:varchar(50);NOT NULL;index;comment:模型名称"` // 模型名称
+	ModelName string `gorm:"column:model_name;type:varchar(50);NOT NULL;index;"` // 模型名称
 	// 评估指标名称
-	MetricName string `gorm:"column:metric_name;type:varchar(50);NOT NULL;comment:评估指标名称"` // 评估指标名称
+	MetricName string `gorm:"column:metric_name;type:varchar(50);NOT NULL;"` // 评估指标名称
 	// 评估指标分数
-	Score float64 `gorm:"column:score;type:decimal(5,2);NOT NULL;comment:评估指标分数"` // 评估指标分数
+	Score float64 `gorm:"column:score;type:decimal(5,2);NOT NULL;"` // 评估指标分数
 	// 评估结果详情
-	Details *string `gorm:"column:details;type:json;NULL;comment:评估结果详情"` // 评估结果详情
+	Details *string `gorm:"column:details;type:json;NULL;"` // 评估结果详情
 	// 评估数据集文件ID
-	DatasetFileId uint `gorm:"column:dataset_file_id;NULL;comment:评估数据集文件ID"` // 评估数据集文件ID
+	DatasetFileId uint `gorm:"column:dataset_file_id;NULL;"` // 评估数据集文件ID
 	// Progress 进度
-	Progress float64 `gorm:"column:progress;null;comment:进度"`
+	Progress float64 `gorm:"column:progress;null;"`
 	// EvalTotal 评估总数
-	EvalTotal int `gorm:"column:eval_total;null;comment:评估总数"`
+	EvalTotal int `gorm:"column:eval_total;null;"`
 	// ErrorMessage 错误信息
-	ErrorMessage string `gorm:"column:error_message;size:1000;null;comment:错误信息"`
+	ErrorMessage string `gorm:"column:error_message;size:1000;null;"`
 	// CompletedAt 评估完成时间
-	CompletedAt *gorm.DeletedAt `gorm:"column:completed_at;NULL;comment:评估完成时间"` // 评估完成时间
+	CompletedAt *gorm.DeletedAt `gorm:"column:completed_at;NULL;"` // 评估完成时间
 	// StartedAt 评估开始时间
-	StartedAt *gorm.DeletedAt `gorm:"column:started_at;NULL;comment:评估开始时间"` // 评估开始时间
+	StartedAt *gorm.DeletedAt `gorm:"column:started_at;NULL;"` // 评估开始时间
 	// EvalDataSetType 评估数据集类型
-	DatasetType string `gorm:"column:dataset_type;size:50;NOT NULL;DEFAULT:'train';comment:评估数据集类型"` // 评估数据集类型
+	DatasetType string `gorm:"column:dataset_type;size:50;NOT NULL;DEFAULT:'train';"` // 评估数据集类型
 	// Remark
-	Remark      string `gorm:"column:remark;size:255;null;comment:备注"`
+	Remark      string `gorm:"column:remark;size:255;null;"`
 	DatasetFile Files  `gorm:"foreignKey:DatasetFileId;references:ID"`
 	UUid        string `gorm:"column:uuid;size:50;null;comment:uuid"`
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/sashabaranov/go-openai"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 	"net"
@@ -350,10 +351,10 @@ func prepare(ctx context.Context) error {
 	logger = logging.SetLogging(logger, serverLogPath, serverLogName, serverLogLevel, serverName, serverLogDrive)
 
 	// 连接数据库
+	var dbErr error
 	if strings.EqualFold(dbDrive, "mysql") {
 		dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local&timeout=20m&collation=utf8mb4_unicode_ci",
 			mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
-		var dbErr error
 		sqlDB, err := sql.Open("mysql", dbUrl)
 		if err != nil {
 			_ = level.Error(logger).Log("sql", "Open", "err", err.Error())
@@ -370,16 +371,29 @@ func prepare(ctx context.Context) error {
 			dbErr = encode.ErrServerStartDbConnect.Wrap(dbErr)
 			return dbErr
 		}
-		//gormDB.Statement.Clauses["soft_delete_enabled"] = clause.Clause{}
-		db, dbErr = gormDB.DB()
-		if dbErr != nil {
-			_ = level.Error(logger).Log("gormDB", "DB", "err", dbErr.Error())
-			dbErr = encode.ErrServerStartDbConnect.Wrap(dbErr)
-			return dbErr
-		}
 		_ = level.Debug(logger).Log("mysql", "connect", "success", true)
+		//gormDB.Statement.Clauses["soft_delete_enabled"] = clause.Clause{}
+	} else if strings.EqualFold(dbDrive, "sqlite") {
+		_ = os.MkdirAll(fmt.Sprintf("%s/database", "./storage"), 0755)
+		gormDB, err = gorm.Open(sqlite.Open(fmt.Sprintf("%s/database/aigc.db", "./storage")), &gorm.Config{
+			DisableForeignKeyConstraintWhenMigrating: true,
+		})
+		if err != nil {
+			_ = level.Error(logger).Log("sqlite", "connect", "err", err.Error())
+			return err
+		}
+		_ = level.Debug(logger).Log("sqlite", "connect", "success", true)
+	} else {
+		err = fmt.Errorf("db drive not support: %s", dbDrive)
+		_ = level.Error(logger).Log("db", "drive", "err", err.Error())
+		return err
 	}
-
+	db, dbErr = gormDB.DB()
+	if dbErr != nil {
+		_ = level.Error(logger).Log("gormDB", "DB", "err", dbErr.Error())
+		dbErr = encode.ErrServerStartDbConnect.Wrap(dbErr)
+		return dbErr
+	}
 	if !strings.EqualFold(serverLogPath, "") {
 		gormDB.Logger = logging.NewGormLogging(logger)
 	} else {

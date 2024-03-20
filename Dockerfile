@@ -30,9 +30,9 @@ COPY --from=node-dev /app/web/dist /go/src/${BUILDPATH}/web
 
 WORKDIR /go/src/${BUILDPATH}/
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /go/bin/aigc-admin -ldflags="-X 'github.com/IceBear-CreditEase-LLM/aigc-admin/cmd/service.version=$(git describe --tags --always --dirty)' \
+RUN go build -o /go/bin/aigc-admin -ldflags="-X 'github.com/IceBear-CreditEase-LLM/aigc-admin/cmd/service.version=$(git describe --tags --always --dirty)' \
                                            -X 'github.com/IceBear-CreditEase-LLM/aigc-admin/cmd/service.buildDate=$(date +%FT%T%z)' \
-                                           -X 'github.com/IceBear-CreditEase-LLM/aigc-admin/cmd/service.gitCommit=$(rev-parse --short HEAD)' \
+                                           -X 'github.com/IceBear-CreditEase-LLM/aigc-admin/cmd/service.gitCommit=$(git rev-parse --short HEAD)' \
                                            -X 'github.com/IceBear-CreditEase-LLM/aigc-admin/cmd/service.gitBranch=$(git rev-parse --abbrev-ref HEAD)'" ./cmd/main.go
 
 # 运行镜像
