@@ -22,6 +22,8 @@ type Service interface {
 	CreateFineTuningJob(ctx context.Context, job *types.FineTuningTrainJob) (err error)
 	// FindFineTuningTemplateByModel 根据模型名称查找微调模版
 	FindFineTuningTemplateByModel(ctx context.Context, modelName string, preloads ...string) (template types.FineTuningTemplate, err error)
+	// FindFineTuningTemplateByModelType 根据模型名称和模版类型查找微调模版
+	FindFineTuningTemplateByModelType(ctx context.Context, modelName string, templateType types.TemplateType, preloads ...string) (template types.FineTuningTemplate, err error)
 	// FindFineTuningJobByJobId 根据jobId查找微调任务
 	FindFineTuningJobByJobId(ctx context.Context, jobId string, preloads ...string) (job types.FineTuningTrainJob, err error)
 	// FindFineTuningJob 根据id查找微调任务
@@ -56,20 +58,6 @@ type service struct {
 	db *gorm.DB
 }
 
-func (s *service) FindChannelById(ctx context.Context, id uint, preloads ...string) (res types.ChatChannels, err error) {
-	db := s.db.WithContext(ctx)
-	for _, preload := range preloads {
-		db = db.Preload(preload)
-	}
-	err = db.Where("id = ?", id).First(&res).Error
-	return
-}
-
-func (s *service) FindFineTunedModel(ctx context.Context, fineTunedModel string) (model types.FineTuningTrainJob, err error) {
-	err = s.db.WithContext(ctx).Where("fine_tuned_model = ?", fineTunedModel).First(&model).Error
-	return
-}
-
 func (s *service) FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error) {
 	db := s.db.WithContext(ctx)
 	for _, preload := range preloads {
@@ -81,6 +69,15 @@ func (s *service) FindFineTuningJobRunning(ctx context.Context, preloads ...stri
 
 func (s *service) FindFineTuningTemplateByType(ctx context.Context, modelName string, templateType types.TemplateType) (tpl types.FineTuningTemplate, err error) {
 	err = s.db.WithContext(ctx).Where("base_model = ? AND template_type = ?", modelName, templateType).First(&tpl).Error
+	return
+}
+
+func (s *service) FindFineTuningTemplateByModelType(ctx context.Context, modelName string, templateType types.TemplateType, preloads ...string) (template types.FineTuningTemplate, err error) {
+	db := s.db.WithContext(ctx)
+	for _, preload := range preloads {
+		db = db.Preload(preload)
+	}
+	err = db.Where("base_model = ? and template_type = ?", modelName, templateType).First(&template).Error
 	return
 }
 
