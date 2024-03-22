@@ -433,6 +433,7 @@ func (s *service) AsyncCheckTaskDatasetSimilar(ctx context.Context, tenantId uin
 		_ = level.Warn(logger).Log("msg", "the annotation task is not completed, cannot be split", "err", err)
 		return
 	}
+
 	// 获取所有标注好的数据
 	segments, _, err := s.repository.DatasetTask().GetTaskSegments(ctx, annotationTask.ID, types.DatasetAnnotationStatusCompleted, 1, 100000)
 	if err != nil {

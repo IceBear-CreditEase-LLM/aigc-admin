@@ -13,18 +13,6 @@ type logging struct {
 	traceId string
 }
 
-func (l *logging) SyncDeployStatus(ctx context.Context, modelId string) error {
-	defer func(begin time.Time) {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
-			"method", "SyncDeployStatus",
-			"modelId", modelId,
-			"took", time.Since(begin),
-		)
-	}(time.Now())
-	return l.next.SyncDeployStatus(ctx, modelId)
-}
-
 func (l *logging) DeleteEval(ctx context.Context, id uint) (err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(

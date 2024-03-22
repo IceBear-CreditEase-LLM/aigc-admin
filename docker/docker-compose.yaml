@@ -5,22 +5,24 @@ services:
     restart: always
     ports:
       - "8080:8080"
-    depends_on:
-      - mysql
-      - redis
+    env_file:
+      - .env
     command:
       - aigc-admin
       - start
+    volumes:
+      - .cache:/usr/local/aigc-admin/storage
   aigc-admin-cronjob:
     image: dudulu/aigc-admin:latest
     restart: always
+    env_file:
+      - .env
     command:
       - aigc-admin
       - cronjob
       - start
-    depends_on:
-      - mysql
-      - redis
+    volumes:
+      - .cache:/usr/local/aigc-admin/storage
   fschat-controller:
     image: dudulu/fschat:v0.2.36
     restart: always

@@ -110,9 +110,6 @@ func decodeCreateModelRequest(ctx context.Context, r *http.Request) (interface{}
 		return nil, encode.InvalidParams.Wrap(err)
 	}
 
-	//if req.IsPrivate && req.Parameters == 0 {
-	//	return nil, encode.InvalidParams.Wrap(errors.New("私有模型，参数量不能为空"))
-	//}
 	return req, nil
 }
 
@@ -142,6 +139,7 @@ func decodeListModelRequest(ctx context.Context, r *http.Request) (interface{}, 
 		Page:     page.GetPage(r),
 		PageSize: page.GetPageSize(r),
 	}
+	req.ModelType = r.URL.Query().Get("modelType")
 	req.ModelName = r.URL.Query().Get("modelName")
 	req.ProviderName = r.URL.Query().Get("providerName")
 	enabled := r.URL.Query().Get("enabled")
@@ -152,14 +150,6 @@ func decodeListModelRequest(ctx context.Context, r *http.Request) (interface{}, 
 		}
 		req.Enabled = &b
 	}
-	//isPrivate := r.URL.Query().Get("isPrivate")
-	//if isPrivate != "" {
-	//	b, err := strconv.ParseBool(isPrivate)
-	//	if err != nil {
-	//		return nil, encode.InvalidParams.Wrap(err)
-	//	}
-	//	req.IsPrivate = &b
-	//}
 	isFineTuning := r.URL.Query().Get("isFineTuning")
 	if isFineTuning != "" {
 		b, err := strconv.ParseBool(isFineTuning)
@@ -232,5 +222,12 @@ func decodeModelDeployRequest(ctx context.Context, r *http.Request) (interface{}
 	if req.Quantization == "" {
 		req.Quantization = "float16"
 	}
+	if req.InferredType == "cpu" && req.Cpu == 0 {
+		return nil, encode.InvalidParams.Wrap(errors.New("cpu is 0"))
+	}
+	if req.InferredType == "gpu" && req.Gpu == 0 {
+		return nil, encode.InvalidParams.Wrap(errors.New("gpu is 0"))
+	}
+
 	return req, nil
 }

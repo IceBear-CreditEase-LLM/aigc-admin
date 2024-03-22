@@ -68,7 +68,7 @@ func (s *service) GetTaskSegmentByRand(ctx context.Context, datasetId uint, perc
 	}
 	//limit := math.Round(percent * float64(total))
 
-	err = query.Order("rand()").Limit(int(percent * float64(total))).Find(&res).Error
+	err = query.Order("random()").Limit(int(percent * float64(total))).Find(&res).Error
 	return
 }
 
@@ -157,7 +157,7 @@ func (s *service) AddTaskSegments(ctx context.Context, data []types.DatasetAnnot
 func (s *service) GetTaskOneSegment(ctx context.Context, taskId uint, status types.DatasetAnnotationStatus, preload ...string) (res *types.DatasetAnnotationTaskSegment, err error) {
 	err = s.db.WithContext(ctx).Model(types.DatasetAnnotationTaskSegment{}).
 		Where("data_annotation_id = ? and status = ?", taskId, status).
-		Order("rand()").
+		Order("random()").
 		First(&res).Error
 	return
 }

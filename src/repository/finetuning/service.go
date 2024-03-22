@@ -50,11 +50,6 @@ type Service interface {
 	FindFineTuningTemplateByType(ctx context.Context, modelName string, templateType types.TemplateType) (tpl types.FineTuningTemplate, err error)
 	// FindFineTuningJobRunning 查找正在运行的任务
 	FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error)
-	// FindFineTunedModel 查找微调模型
-	FindFineTunedModel(ctx context.Context, fineTunedModel string) (model types.FineTuningTrainJob, err error)
-
-	// FindChannelById 根据id查询渠道
-	FindChannelById(ctx context.Context, id uint, preload ...string) (res types.ChatChannels, err error)
 }
 
 type service struct {
@@ -115,11 +110,7 @@ func (s *service) CountFineTuningJobDuration(ctx context.Context) (res int64, er
 	err = s.db.WithContext(ctx).Model(&types.FineTuningTrainJob{}).Where("train_status in ?", []types.TrainStatus{
 		types.TrainStatusSuccess, types.TrainStatusFailed,
 	}).Select("sum(train_duration) as total").Scan(&res).Error
-	if err != nil {
-		res = 0
-		err = nil
-	}
-	return
+	return res, nil
 }
 
 func (s *service) CountFineTuningJobByStatus(ctx context.Context) (res map[string]int64, err error) {

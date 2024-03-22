@@ -14,37 +14,12 @@ type logging struct {
 	traceId string
 }
 
-func (l *logging) FindFineTunedModel(ctx context.Context, fineTunedModel string) (model types.FineTuningTrainJob, err error) {
-	defer func() {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
-			"method", "FindFineTunedModel",
-			"fineTunedModel", fineTunedModel,
-			"model", model,
-			"err", err,
-		)
-	}()
-	return l.next.FindFineTunedModel(ctx, fineTunedModel)
-}
-
-func (l *logging) FindChannelById(ctx context.Context, id uint, preload ...string) (res types.ChatChannels, err error) {
-	defer func() {
-		_ = l.logger.Log(
-			l.traceId, ctx.Value(l.traceId),
-			"method", "FindChannelById",
-			"id", id,
-			"res", res,
-			"err", err,
-		)
-	}()
-	return l.next.FindChannelById(ctx, id, preload...)
-}
-
 func (l *logging) FindFineTuningJobRunning(ctx context.Context, preloads ...string) (jobs []types.FineTuningTrainJob, err error) {
 	defer func(begin time.Time) {
 		_ = l.logger.Log(
 			l.traceId, ctx.Value(l.traceId),
-			"took", time.Since(begin),
+			"method", "FindFineTuningJobRunning",
+			"jobs", jobs,
 			"err", err,
 		)
 	}(time.Now())
@@ -63,6 +38,20 @@ func (l *logging) FindFineTuningTemplateByType(ctx context.Context, modelName st
 		)
 	}(time.Now())
 	return l.next.FindFineTuningTemplateByType(ctx, modelName, templateType)
+}
+
+func (l *logging) FindFineTuningTemplateByModelType(ctx context.Context, modelName string, templateType types.TemplateType, preloads ...string) (template types.FineTuningTemplate, err error) {
+	defer func(begin time.Time) {
+		_ = l.logger.Log(
+			l.traceId, ctx.Value(l.traceId),
+			"method", "FindFineTuningTemplateByModelType",
+			"modelName", modelName,
+			"templateType", templateType,
+			"template", template,
+			"err", err,
+		)
+	}(time.Now())
+	return l.next.FindFineTuningTemplateByModelType(ctx, modelName, templateType, preloads...)
 }
 
 func (l *logging) GetFineTuningJobByModelName(ctx context.Context, modelName string, preloads ...string) (job types.FineTuningTrainJob, err error) {

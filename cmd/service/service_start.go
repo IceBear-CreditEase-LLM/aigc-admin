@@ -118,7 +118,7 @@ func start(ctx context.Context) (err error) {
 	}...)
 	channelSvc = channels.NewService(logger, traceId, store, apiSvc)
 	modelSvc = models.NewService(logger, traceId, store, apiSvc,
-		models.WithGpuTolerationValue(datasetsGpuToleration),
+		models.WithGPUTolerationValue(datasetsGpuToleration),
 	)
 	fineTuningSvc = finetuning.New(traceId, logger, store, fileSvc, apiSvc, finetuning.WithGpuTolerationValue(datasetsGpuToleration))
 	sysSvc = sys.NewService(logger, traceId, store, apiSvc)

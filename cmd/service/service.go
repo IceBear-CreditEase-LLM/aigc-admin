@@ -189,8 +189,6 @@ const (
 	DefaultJaegerType             = "const"
 	DefaultJaegerLogSpans         = false
 
-	DefaultServiceAlarmHost = "http://alarm:8080"
-
 	// [chat]相关
 	DefaultServiceChatApiHost  = "http://fschat-api:8000/v1"
 	DefaultServiceChatApiToken = "sk-001"
@@ -219,9 +217,9 @@ const (
 	//DefaultServiceS3Cluster      = "ceph-c2"
 
 	// [datasets]
-	DefaultDatasetsImage     = "dudulu/llmops:v0.8-0314"
+	DefaultDatasetsImage     = "dudulu/llmops:latest"
 	DefaultDatasetsModelName = "uer/sbert-base-chinese-nli"
-	DefaultDatasetsDevice    = "cpu"
+	DefaultDatasetsDevice    = ""
 )
 
 var (

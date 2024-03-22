@@ -1,7 +1,7 @@
 version: "3"
 services:
   aigc-admin:
-    image: dudulu/aigc-admin:beta-0320
+    image: dudulu/aigc-admin:v0.0.0-beta01
     restart: always
     build:
       context: .
@@ -13,3 +13,19 @@ services:
     command:
       - aigc-admin
       - start
+    volumes:
+      - .cache:/usr/local/aigc-admin/storage
+  aigc-admin-cronjob:
+    image: dudulu/aigc-admin:v0.0.0-beta01
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    command:
+      - aigc-admin
+      - cronjob
+      - start
+    volumes:
+      - .cache:/usr/local/aigc-admin/storage

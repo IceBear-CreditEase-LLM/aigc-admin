@@ -36,8 +36,6 @@ type Service interface {
 	ListModels(ctx context.Context, request ListModelRequest) (res []types.Models, total int64, err error)
 	// CreateModel 创建模型
 	CreateModel(ctx context.Context, data *types.Models) (err error)
-	// CreateDeploy 创建部署模型
-	CreateDeploy(ctx context.Context, modelDeploy *types.ModelDeploy) (err error)
 	// GetModel 获取模型
 	GetModel(ctx context.Context, id uint, preload ...string) (res types.Models, err error)
 	// UpdateModel 更新模型
@@ -58,6 +56,14 @@ type Service interface {
 	GetEval(ctx context.Context, id uint) (res types.LLMEvalResults, err error)
 	// DeleteEval 删除评估任务
 	DeleteEval(ctx context.Context, id uint) (err error)
+	// SaveModelDeploy 模型部署，信息入库
+	SaveModelDeploy(ctx context.Context, data *types.ModelDeploy) (err error)
+	// FindModelDeployByModeId 获取模型ID获取最近的部署
+	FindModelDeployByModeId(ctx context.Context, modelId uint) (res types.ModelDeploy, err error)
+	// SaveModel 保存模型
+	SaveModel(ctx context.Context, model *types.Models) (err error)
+	// CancelModelDeploy 取消部署
+	CancelModelDeploy(ctx context.Context, modelId uint) (err error)
 	// FindDeployPendingModels 获取正在部署的模型
 	FindDeployPendingModels(ctx context.Context) (models []types.Models, err error)
 	// UpdateDeployStatus 更新部署状态
@@ -66,20 +72,10 @@ type Service interface {
 	SetModelEnabled(ctx context.Context, modelId string, enabled bool) (err error)
 	// FindByModelId 根据id查询模型
 	FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error)
-	// DeleteDeploy 删除部署
-	DeleteDeploy(ctx context.Context, modelId uint) (err error)
 }
 
 type service struct {
 	db *gorm.DB
-}
-
-func (s *service) DeleteDeploy(ctx context.Context, modelId uint) (err error) {
-	return s.db.WithContext(ctx).Where("model_id = ?", modelId).Delete(&types.ModelDeploy{}).Error
-}
-
-func (s *service) CreateDeploy(ctx context.Context, modelDeploy *types.ModelDeploy) (err error) {
-	return s.db.WithContext(ctx).Create(modelDeploy).Error
 }
 
 func (s *service) FindByModelId(ctx context.Context, modelId string, preloads ...string) (model types.Models, err error) {
@@ -95,16 +91,37 @@ func (s *service) SetModelEnabled(ctx context.Context, modelId string, enabled b
 	return s.db.WithContext(ctx).Model(&types.Models{}).Where("model_name = ?", modelId).Update("enabled", enabled).Error
 }
 
-func (s *service) UpdateDeployStatus(ctx context.Context, modelId uint, status types.ModelDeployStatus) (err error) {
-	return s.db.WithContext(ctx).Model(&types.ModelDeploy{}).Where("model_id = ?", modelId).Updates(map[string]interface{}{
-		"status": status,
-	}).Error
-}
-
 func (s *service) FindDeployPendingModels(ctx context.Context) (models []types.Models, err error) {
 	err = s.db.WithContext(ctx).
 		InnerJoins("JOIN model_deploy ON model_deploy.status = ? AND model_deploy.deleted_at IS NULL", types.ModelDeployStatusPending).
 		Find(&models).Error
+	return
+}
+
+func (s *service) CancelModelDeploy(ctx context.Context, modelId uint) (err error) {
+	model, err := s.FindModelDeployByModeId(ctx, modelId)
+	if err != nil {
+		return err
+	}
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err = tx.Model(&types.ModelDeploy{}).Where("id = ?", model.ID).Delete(&types.ModelDeploy{}).Error; err != nil {
+			return err
+		}
+		// 取消channel授权
+		//if err = tx.Model(&types.Models{}).Where("model_id = ?", modelId).Association("Channels").Clear(); err != nil {
+		//	return err
+		//}
+		return tx.Model(&types.Models{}).Where("id = ?", modelId).Update("enabled", false).Error
+	})
+}
+
+func (s *service) SaveModel(ctx context.Context, model *types.Models) (err error) {
+	err = s.db.WithContext(ctx).Save(model).Error
+	return
+}
+
+func (s *service) FindModelDeployByModeId(ctx context.Context, modelId uint) (res types.ModelDeploy, err error) {
+	err = s.db.WithContext(ctx).Where("model_id = ?", modelId).Order("id DESC").Limit(1).First(&res).Error
 	return
 }
 
@@ -170,6 +187,17 @@ func (s *service) ListModels(ctx context.Context, request ListModelRequest) (res
 	if request.ProviderName != "" {
 		query = query.Where("provider_name = ?", request.ProviderName)
 	}
+
+	if request.ModelType != "" {
+		query = query.Where("model_type = ?", request.ModelType)
+	}
+
+	if request.BaseModelName == "null" {
+		query = query.Where("base_model_name is NULL or base_model_name = ''")
+	} else if request.BaseModelName == "notNull" {
+		query = query.Where("base_model_name is NOT NULL and base_model_name != '' ")
+	}
+
 	limit, offset := page.Limit(request.Page, request.PageSize)
 	err = query.Count(&total).Order("updated_at DESC").Limit(limit).Offset(offset).Preload("Tenants").Preload("ModelDeploy").Find(&res).Error
 	return
@@ -207,11 +235,19 @@ func (s *service) GetModel(ctx context.Context, id uint, preload ...string) (res
 }
 
 type UpdateModelRequest struct {
-	Id        uint
-	TenantId  *[]uint
-	MaxTokens *int
-	Enabled   *bool
-	Remark    *string
+	Id            uint
+	TenantId      *[]uint
+	MaxTokens     *int
+	Enabled       *bool
+	Remark        *string
+	BaseModelName string
+	Replicas      int
+	Label         string
+	K8sCluster    string
+	InferredType  string
+	Gpu           int
+	Cpu           int
+	Memory        int
 }
 
 func (s *service) UpdateModel(ctx context.Context, request UpdateModelRequest) (err error) {
@@ -228,6 +264,14 @@ func (s *service) UpdateModel(ctx context.Context, request UpdateModelRequest) (
 	if request.Remark != nil {
 		data.Remark = *request.Remark
 	}
+	data.BaseModelName = request.BaseModelName
+	data.Replicas = request.Replicas         //并行/实例数量
+	data.Label = request.Label               //调度标签
+	data.K8sCluster = request.K8sCluster     //k8s集群
+	data.InferredType = request.InferredType //推理类型cpu,gpu
+	data.Gpu = request.Gpu                   //GPU数
+	data.Cpu = request.Cpu                   //CPU核数
+	data.Memory = request.Memory             //内存G
 	data.UpdatedAt = time.Now()
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.WithContext(ctx).Save(data).Error; err != nil {
@@ -278,6 +322,17 @@ func (s *service) FindModelsByTenantId(ctx context.Context, tenantId uint) (res 
 	err = s.db.WithContext(ctx).Where("id = ?", tenantId).Preload("Models").First(&tenant).Error
 	res = tenant.Models
 	return
+}
+
+func (s *service) SaveModelDeploy(ctx context.Context, data *types.ModelDeploy) (err error) {
+	err = s.db.WithContext(ctx).Save(data).Error
+	return
+}
+
+func (s *service) UpdateDeployStatus(ctx context.Context, modelId uint, status types.ModelDeployStatus) (err error) {
+	return s.db.WithContext(ctx).Model(&types.ModelDeploy{}).Where("model_id = ?", modelId).Updates(map[string]interface{}{
+		"status": status,
+	}).Error
 }
 
 func New(db *gorm.DB) Service {
